@@ -127,12 +127,7 @@ pub mod pallet {
 		// Launchday transfer 2
 		(26, Allocation::Ecosystem, 14_449_903_350 * MILLIANLOG, Stage::Retired),
 		// Bridged token allocation
-		(
-			27,
-			Allocation::Initiatives,
-			45_289_855 * ANLOG,
-			Stage::DepositFromUnlocked(data::v27::DEPOSIT_BRIDGED),
-		),
+		(27, Allocation::Initiatives, 45_289_855 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 5
 		(
 			28,
