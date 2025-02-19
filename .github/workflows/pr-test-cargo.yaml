@@ -1,4 +1,4 @@
-name: Check testsuite
+name: Run all except e2e tests
 on:
   pull_request:
     paths:
@@ -38,6 +38,6 @@ jobs:
         uses: ./.github/actions/cargo-command
         with:
           command: test
-          args: --all-features
+          args: --all-features --exclude timechain
           cache: false
           annotate: false

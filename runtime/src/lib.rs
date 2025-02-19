@@ -85,6 +85,7 @@
 /// The runtime is split into its components
 pub mod apis;
 pub mod configs;
+pub mod migrations;
 pub mod offchain;
 
 pub use apis::RuntimeApi;
@@ -236,7 +237,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-timechain"),
 	impl_name: create_runtime_str!("analog-timechain"),
 	authoring_version: 0,
-	spec_version: 17,
+	spec_version: 18,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -250,7 +251,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-testnet"),
 	impl_name: create_runtime_str!("analog-testnet"),
 	authoring_version: 0,
-	spec_version: 17,
+	spec_version: 18,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -264,7 +265,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-develop"),
 	impl_name: create_runtime_str!("analog-develop"),
 	authoring_version: 0,
-	spec_version: 17,
+	spec_version: 18,
 	impl_version: 0,
 	apis: apis::RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -690,7 +691,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = ();
+type Migrations = migrations::fix_pool_members::RemoveBuggyPoolMembersMigration<Runtime>;
 
 #[cfg(test)]
 mod core_tests {
