@@ -102,7 +102,7 @@ impl Tc {
 			runtime,
 			connectors,
 			msg,
-			tc_network_id
+			tc_network_id,
 		})
 	}
 
@@ -1081,8 +1081,15 @@ impl Tc {
 		// networks
 		self.deploy().await?;
 		let (src_addr, src_block) = self.deploy_tester(src).await?;
-		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
-		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
+		tracing::info!("deployed tester to src network at block {}", src_block);
+
+		let mut dest_addr: Address = Default::default();
+
+		if dest != self.tc_network_id {
+			let (dest_address, dest_block) = self.deploy_tester(dest).await?;
+			tracing::info!("deployed tester to dest network at block {}", dest_block);
+			dest_addr = dest_address;
+		}
 
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
@@ -1110,7 +1117,9 @@ impl Tc {
 		}
 		// registered shards
 		self.register_shards(src).await?;
-		self.register_shards(dest).await?;
+		if dest != self.tc_network_id {
+			self.register_shards(dest).await?;
+		}
 		while blocks.next().await.is_some() {
 			let shards = self.shards().await?;
 			let is_registered =
