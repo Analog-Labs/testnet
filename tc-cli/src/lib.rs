@@ -1089,6 +1089,8 @@ impl Tc {
 			let (dest_address, dest_block) = self.deploy_tester(dest).await?;
 			tracing::info!("deployed tester to dest network at block {}", dest_block);
 			dest_addr = dest_address;
+		} else {
+			tracing::info!("dest chain is Timechain");
 		}
 
 		// chronicles
@@ -1108,7 +1110,7 @@ impl Tc {
 		while blocks.next().await.is_some() {
 			let src_keys = self.find_online_shard_keys(src).await?;
 			let dest_keys = self.find_online_shard_keys(dest).await?;
-			if !src_keys.is_empty() && !dest_keys.is_empty() {
+			if !src_keys.is_empty() && (!dest_keys.is_empty() || dest == self.tc_network_id) {
 				break;
 			}
 			tracing::info!("waiting for shards to come online");
@@ -1122,8 +1124,9 @@ impl Tc {
 		}
 		while blocks.next().await.is_some() {
 			let shards = self.shards().await?;
-			let is_registered =
-				shards.iter().any(|shard| shard.registered && shard.network == dest);
+			let is_registered = shards.iter().any(|shard| {
+				shard.registered && (shard.network == dest || dest == self.tc_network_id)
+			});
 			tracing::info!("waiting for shard to be registered");
 			id = Some(self.print_table(id, "shards", shards).await?);
 			if is_registered {
