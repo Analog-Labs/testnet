@@ -26,4 +26,18 @@ async fn to_erc20_and_back() {
 		.expect("Failed to spawn Test Environment");
 
 	let (src_addr, _) = env.setup_test(EVM, TC).await.expect("failed to setup test");
+
+	/* PLAN: (follow steps at README)
+	PREPARE:
+	1. Register TC network (route) to the gateway at network 2
+	2. Deploy ERC20 contracts
+	TC->ERC20
+	3. REgister nw 2 @bridge pallet
+	4. Dispatch extrinsic for teleport TC->ERC20
+	5. Wait for task to complete (or batch to get tx_hash) & check the resulting balance(s)
+	ERC20->TC
+	6. call estimateTeleport
+	7. send teleport tx ERC20->TC
+	8. Wait for task to be completed & check the resulting balance(s)
+	*/
 }
