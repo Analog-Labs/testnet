@@ -46,6 +46,7 @@ pub struct Tc {
 	runtime: SubxtClient,
 	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
 	msg: Sender,
+	tc_network_id: NetworkId,
 }
 
 impl Tc {
@@ -95,11 +96,13 @@ impl Tc {
 			}
 		}
 		let runtime = runtime.await??;
+		let tc_network_id = runtime.tc_network_id().await?;
 		Ok(Self {
 			config,
 			runtime,
 			connectors,
 			msg,
+			tc_network_id
 		})
 	}
 
@@ -685,7 +688,7 @@ impl Tc {
 	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Gateway) -> Result<()> {
 		let connector = self.connector(src)?;
 		let route = Route {
-			network_id: self.runtime.tc_network_id().await?,
+			network_id: self.tc_network_id,
 			// note: TC does not have GW,
 			// but GMP GW does not accept 0x here,
 			// hence we set it to src_gateway as well.
