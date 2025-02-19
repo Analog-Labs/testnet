@@ -685,7 +685,7 @@ impl Tc {
 	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Gateway) -> Result<()> {
 		let connector = self.connector(src)?;
 		let route = Route {
-			network_id: 1000,
+			network_id: self.runtime.tc_network_id().await?,
 			// note: TC does not have GW,
 			// but GMP GW does not accept 0x here,
 			// hence we set it to src_gateway as well.
@@ -1080,12 +1080,7 @@ impl Tc {
 		let (src_addr, src_block) = self.deploy_tester(src).await?;
 		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
 		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-		/*let networks = self.networks().await?;
-		self.print_table(None, "networks", networks.clone()).await?;
-		for network in networks {
-			let routes = self.routes(network.network).await?;
-			self.print_table(None, "routes", routes).await?;
-		}*/
+
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
