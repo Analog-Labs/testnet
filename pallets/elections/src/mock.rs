@@ -4,7 +4,7 @@ use polkadot_sdk::*;
 
 use frame_support::derive_impl;
 use frame_support::traits::OnInitialize;
-use sp_core::{ConstU128, ConstU32, ConstU64, ConstU16};
+use sp_core::{ConstU128, ConstU16, ConstU32, ConstU64};
 use sp_runtime::{
 	traits::{IdentifyAccount, IdentityLookup, Verify},
 	BuildStorage, MultiSignature,

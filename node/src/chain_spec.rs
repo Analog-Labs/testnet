@@ -2,8 +2,8 @@ use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
 use frame_support::PalletId;
-use polkadot_sdk::*;
 use polkadot_sdk::sp_runtime::traits::AccountIdConversion;
+use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{json_merge, ChainSpecExtension};

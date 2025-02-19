@@ -170,7 +170,11 @@ impl Connector {
 		let deployer_address = self.parse_address(&config.factory_deployer)?;
 
 		// Step1: fund 0x908064dE91a32edaC91393FEc3308E6624b85941
-		tracing::info!("funding deployer: 0x{}, with: {}", hex::encode(&deployer_address), &config.required_balance);
+		tracing::info!(
+			"funding deployer: 0x{}, with: {}",
+			hex::encode(&deployer_address),
+			&config.required_balance
+		);
 		self.transfer(deployer_address, config.required_balance).await?;
 
 		//Step2: load transaction from config
@@ -619,8 +623,7 @@ impl IConnectorAdmin for Connector {
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let gateway = extract_bytecode(gateway)?;
 
-		let gateway_addr =
-			self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
+		let gateway_addr = self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};

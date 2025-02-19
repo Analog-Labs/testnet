@@ -136,7 +136,10 @@ impl SubxtClient {
 
 	pub async fn tc_network_id(&self) -> Result<NetworkId> {
 		let query = metadata::constants().networks().timechain_network_id();
-		self.client.constants().at(&query).context("failed to query timechain network id")
+		self.client
+			.constants()
+			.at(&query)
+			.context("failed to query timechain network id")
 	}
 }
 
