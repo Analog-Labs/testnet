@@ -4,36 +4,36 @@ use std::process;
 use tc_cli::{Sender, Tc};
 use time_primitives::{Address, NetworkId};
 
-pub struct TestEnv {
+pub struct TestEnv<'a> {
 	pub tc: Tc,
+	pub profile: &'a str,
 }
 
-const CONFIG: &str = "local-evm-e2e.yaml";
 const ENV: &str = "config/envs/local";
 
-impl TestEnv {
-	async fn new() -> Result<Self> {
+impl<'a> TestEnv<'a> {
+	async fn new(config: &str, profile: &'a str) -> Result<Self> {
 		let sender = Sender::new();
-		let tc = Tc::new(Path::new(ENV).to_path_buf(), CONFIG, sender)
+		let tc = Tc::new(Path::new(ENV).to_path_buf(), config, sender)
 			.await
 			.context("Error creating Tc client")?;
-		Ok(TestEnv { tc })
+		Ok(TestEnv { tc, profile })
 	}
 
 	/// spawns new testing env
-	pub async fn spawn(build: bool) -> Result<Self> {
+	pub async fn spawn(config: &str, profile: &'a str, build: bool) -> Result<Self> {
 		if build && !build_containers()? {
 			anyhow::bail!("Failed to build containers");
 		}
 
-		if !docker_up()? {
+		if !docker_up(profile)? {
 			anyhow::bail!("Failed to start containers");
 		}
-		Self::new().await
+		Self::new(config, profile).await
 	}
 
 	/// sets up test
-	pub async fn setup(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
+	pub async fn setup_test(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 		self.tc.setup_test(src, dest).await
 	}
 
@@ -43,10 +43,10 @@ impl TestEnv {
 	}
 }
 
-impl Drop for TestEnv {
+impl<'a> Drop for TestEnv<'a> {
 	/// Tear-down logic for the tests
 	fn drop(&mut self) {
-		if !docker_down().expect("Failed to stop containers") {
+		if !docker_down(self.profile).expect("Failed to stop containers") {
 			println!(
 				"Failed to stop containers, please stop by hand with:\n\
                        \t $> docker compose --profile=ethereum down"
@@ -62,10 +62,10 @@ fn build_containers() -> Result<bool> {
 	child.wait().map(|c| c.success()).context("Error building containers: {e}")
 }
 
-fn docker_up() -> Result<bool> {
+fn docker_up(profile: &str) -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
-
-	cmd.arg("compose").arg("--profile=evm").arg("up").arg("-d").arg("--wait");
+	let profile = format!("--profile={profile}");
+	cmd.arg("compose").arg(profile).arg("up").arg("-d").arg("--wait");
 
 	let mut child = cmd.spawn().context("Error starting containers")?;
 
@@ -73,10 +73,11 @@ fn docker_up() -> Result<bool> {
 	child.wait().map(|c| c.success()).context("Error starting containers")
 }
 
-fn docker_down() -> Result<bool> {
+fn docker_down(profile: &str) -> Result<bool> {
 	let mut cmd = process::Command::new("docker");
 
-	cmd.arg("compose").arg("--profile=evm").arg("down");
+	let profile = format!("--profile={profile}");
+	cmd.arg("compose").arg(profile).arg("down");
 
 	let mut child = cmd.spawn().context("Error stopping containers")?;
 

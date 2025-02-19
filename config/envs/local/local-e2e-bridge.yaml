@@ -13,7 +13,7 @@ networks:
     backend: "evm"
     blockchain: "anvil"
     network: "dev"
-    url: "ws://chain-2-evm:8545"
+    url: "ws://localhost:8545"
     admin_funds: 100.
     gateway_funds: 1.
     chronicle_funds: 1.
@@ -27,4 +27,4 @@ networks:
     shard_size: 1
     shard_threshold: 1
 chronicles:
-  - http://timechain-chronicle-2-evm-1:8080
+  - http://localhost:8080
