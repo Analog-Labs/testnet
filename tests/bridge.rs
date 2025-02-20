@@ -15,6 +15,7 @@ use tc_subxt::metadata;
 
 use time_primitives::NetworkId;
 
+const TC: NetworkId = 2;
 const EVM: NetworkId = 2;
 
 const CONFIG: &str = "local-e2e-bridge.yaml";
@@ -32,9 +33,13 @@ async fn to_erc20() {
 		.add_directive("bridge_test=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
-	let env = TestEnv::spawn(CONFIG, PROFILE, false)
+	let env = TestEnv::spawn(CONFIG, PROFILE, true)
 		.await
 		.expect("Failed to spawn Test Environment");
+
+	// TODO use TC snapshot with all prerequisite things set up there
+	let _ = env.setup_test(EVM, TC).await.expect("failed to setup TC for the test");
+
 
 	// NOTE we use evm chain snapshot, with state wich already has:
 	// 1. GMP Gateway deployed
@@ -109,6 +114,13 @@ async fn to_erc20() {
 		.flatten()
 		.expect("Teleported event missed");
 	tracing::info!(target: "bridge_test", "Teleported event found: {tel_event:?}");
+
+	let tsk_event = events
+		.find_first::<metadata::tasks::events::TaskCreated>()
+		.ok()
+		.flatten()
+		.expect("TaskCreated event missed");
+	tracing::info!(target: "bridge_test", "TaskCreated event found: {tsk_event:?}");
 
 	// 7. Check source balance(s)
 	let tc_bal_after =

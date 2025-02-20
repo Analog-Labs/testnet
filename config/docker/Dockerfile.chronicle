@@ -1,5 +1,4 @@
 FROM scratch
 COPY chronicle chronicle
-COPY ./envs/local/chronicle-ecdsa.key /etc/target_keyfile
 
 ENTRYPOINT ["/chronicle"]
