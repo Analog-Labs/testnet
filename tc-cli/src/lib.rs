@@ -50,6 +50,10 @@ pub struct Tc {
 }
 
 impl Tc {
+	pub fn runtime(&self) -> &SubxtClient {
+		&self.runtime
+	}
+
 	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;

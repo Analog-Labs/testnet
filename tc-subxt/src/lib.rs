@@ -35,7 +35,7 @@ pub type ExtrinsicParams =
 	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
 
 pub struct SubxtClient {
-	client: OnlineClient,
+	pub client: OnlineClient,
 	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<TimechainExtrinsic>)>,
 	public_key: PublicKey,
 	account_id: AccountId,

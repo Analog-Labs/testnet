@@ -78,9 +78,11 @@ services:
   chain-2-evm:
     image: 'ghcr.io/foundry-rs/foundry:latest'
     command:
-    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
+    - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0 --state=/etc/anvil/state.json'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    volumes:
+        - ${PWD}/tmp/:/etc/anvil/
     ports:
     - 8545:8545
     profiles:
