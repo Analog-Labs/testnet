@@ -8,7 +8,7 @@ use polkadot_sdk::*;
 use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
 //use sp_runtime::traits::CheckedConversion;
 
-use time_primitives::{ANLOG, MILLIANLOG as mANLOG};
+use time_primitives::MILLIANLOG as mANLOG;
 
 /// Current expected on-chain stage version to test
 const ON_CHAIN_STAGE: u16 = 27;
