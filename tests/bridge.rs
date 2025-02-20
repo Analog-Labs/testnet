@@ -1,5 +1,4 @@
 use alloy_core::primitives::{address, Address as Address20};
-use futures::StreamExt;
 use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
 use metadata::runtime_types::pallet_assets_bridge::types::NetworkData;
 
@@ -39,7 +38,6 @@ async fn to_erc20() {
 
 	// TODO use TC snapshot with all prerequisite things set up there
 	let _ = env.setup_test(EVM, TC).await.expect("failed to setup TC for the test");
-
 
 	// NOTE we use evm chain snapshot, with state wich already has:
 	// 1. GMP Gateway deployed
@@ -90,7 +88,6 @@ async fn to_erc20() {
 		.balance(&bridge_pot)
 		.await
 		.expect("cannot query bridge balance");
-	// TODO why is it larger than ED at this point??
 	tracing::info!(target: "bridge_test", "Bridge bal before: {bridge_bal_before}");
 
 	//	5. Dispatch extrinsic for teleporting TC->ERC20
@@ -115,6 +112,12 @@ async fn to_erc20() {
 		.expect("Teleported event missed");
 	tracing::info!(target: "bridge_test", "Teleported event found: {tel_event:?}");
 
+	let mut blocks_sub = api.blocks().subscribe_finalized().await.expect("cant' subscribe to finalized blocks");
+	let _ = blocks_sub.next().await.expect("cant' get next block");
+	// wait for the next block to get TaskCreated event
+	let block = blocks_sub.next().await.map(|x| x.ok()).flatten().expect("cant' get next block");
+	tracing::info!(target: "bridge_test", "Next finalized block: #{}", block.number());
+	let events = api.events().at(block.hash()).await.expect("cant get latest block events");
 	let tsk_event = events
 		.find_first::<metadata::tasks::events::TaskCreated>()
 		.ok()
