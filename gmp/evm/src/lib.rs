@@ -617,8 +617,7 @@ impl IConnectorAdmin for Connector {
 		let config: DeploymentConfig = serde_json::from_slice(additional_params)?;
 		let gateway = extract_bytecode(gateway)?;
 
-		let gateway_addr =
-			self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
+		let gateway_addr = self.deploy_gateway_contract(&config, a_addr(proxy), gateway).await?;
 		let call = sol::Gateway::upgradeCall {
 			newImplementation: gateway_addr,
 		};
