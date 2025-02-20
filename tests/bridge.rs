@@ -30,6 +30,10 @@ async fn to_erc20_and_back() {
 	/* PLAN: (follow steps at README)
 	PREPARE:
 	1. Register TC network (route) to the gateway at network 2
+	 */
+	let gw = &env.tc.gateway(EVM).await.expect("failed to get gateway address").1;
+	let _ = &env.tc.set_tc_route(EVM, *gw).await.expect("failed to set tc route");
+	/*
 	2. Deploy ERC20 contracts
 	TC->ERC20
 	3. REgister nw 2 @bridge pallet

@@ -113,7 +113,7 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
