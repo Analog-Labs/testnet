@@ -25,6 +25,7 @@ mod benchmarks;
 
 mod airdrops;
 mod allocation;
+mod application;
 mod deposits;
 mod ledger;
 mod stage;
@@ -46,6 +47,7 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use allocation::Allocation;
+	use application::Application;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
 		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
@@ -56,12 +58,12 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	pub trait WeightInfo {
-		fn set_bridged_issuance() -> Weight;
+		fn lock_operational() -> Weight;
 	}
 
 	pub struct TestWeightInfo;
 	impl WeightInfo for TestWeightInfo {
-		fn set_bridged_issuance() -> Weight {
+		fn lock_operational() -> Weight {
 			Weight::zero()
 		}
 	}
@@ -250,25 +252,25 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Update total amount of tokens that are locked in the [`Allocation::Bridged`]
-		/// account as preparation for miniting or as a result of burning wrapped
-		/// tokens on another chain.
+		/// Update total amount of tokens that are locked in one of the operational wallets.
+		///
+		/// This is used as a preparation for miniting, as a result of burning wrapped
+		/// tokens on another chain or other tokenomics reasons.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_bridged_issuance())]
-		pub fn set_bridged_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
+		pub fn lock_operational(
+			origin: OriginFor<T>,
+			target: Application,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			T::LaunchAdmin::ensure_origin(origin)?;
 
-			let bridge_account = Allocation::Bridged.account_id::<T>();
+			let account = target.account_id::<T>();
 			ensure!(
-				CurrencyOf::<T>::total_balance(&bridge_account) >= amount,
+				CurrencyOf::<T>::total_balance(&account) >= amount,
 				TokenError::FundsUnavailable
 			);
-			CurrencyOf::<T>::set_lock(
-				*b"bridged0",
-				&bridge_account,
-				amount,
-				WithdrawReasons::all(),
-			);
+			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
 
 			Ok(())
 		}

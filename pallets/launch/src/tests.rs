@@ -6,7 +6,6 @@ use crate::{ledger::LaunchLedger, Event, Pallet, LAUNCH_LEDGER, LAUNCH_VERSION, 
 use polkadot_sdk::*;
 
 use frame_support::traits::{Currency, StorageVersion, VestingSchedule};
-//use sp_runtime::traits::CheckedConversion;
 
 use time_primitives::MILLIANLOG as mANLOG;
 
