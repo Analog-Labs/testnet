@@ -1,6 +1,8 @@
 use alloy_core::primitives::{address, Address as Address20};
 use futures::StreamExt;
+use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
 use metadata::runtime_types::pallet_assets_bridge::types::NetworkData;
+
 use sp_core::crypto::AccountId32 as Address32;
 use tc_cli::Tc;
 use tracing_subscriber::filter::EnvFilter;
@@ -55,20 +57,35 @@ async fn to_erc20_and_back() {
 	};
 	//	3. REgister nw 2 @bridge pallet
 	let api = &env.tc.runtime().client;
-	let tx = metadata::tx().bridge().register_network(EVM.into(), 0, data);
+	//	let tx = metadata::tx().bridge().register_network(EVM.into(), 0, data);
+	let call = metadata::RuntimeCall::Bridge(BridgeCall::register_network {
+		network: EVM.into(),
+		base_fee: 0,
+		data,
+	});
+	let sudo_tx = metadata::sudo(call);
 
 	let from = dev::eve();
 	let _events = api
 		.tx()
-		.sign_and_submit_then_watch_default(&tx, &from)
+		.sign_and_submit_then_watch_default(&sudo_tx, &from)
 		.await
 		.unwrap()
 		.wait_for_finalized_success()
 		.await
 		.unwrap();
-	tracing::info!("Network {EVM} registered to bridge");
+	tracing::info!(target: "bridge_test", "Network {EVM} registered to bridge");
+
+	//	4. Dispatch extrinsic for teleport TC->ERC20
+	// let _events = api
+	// 	.tx()
+	// 	.sign_and_submit_then_watch_default(&tx, &from)
+	// 	.await
+	// 	.unwrap()
+	// 	.wait_for_finalized_success()
+	// 	.await
+	// 	.unwrap();
 	/*
-	4. Dispatch extrinsic for teleport TC->ERC20
 	5. Wait for task to complete (or batch to get tx_hash) & check the resulting balance(s)
 	ERC20->TC
 	6. call estimateTeleport
