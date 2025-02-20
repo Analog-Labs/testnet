@@ -39,25 +39,16 @@ async fn to_erc20() {
 		.await
 		.expect("Failed to spawn Test Environment");
 
-	//	let (src_addr, _) = env.setup_test(EVM, TC).await.expect("failed to setup test");
-
-	/* PLAN: (follow steps at README)
-	PREPARE: NOTE: we have all of this already done and store in the anvil snapshot
-	1. Register TC network (route) to the gateway at network 2
-	 */
-	// let gw: Gateway = GATEWAY.into_word().into();
-	// let _ = &env.tc.set_tc_route(EVM, gw).await.expect("failed to set tc route");
-	// tracing::info!("TC route registered");
-	/*
-	2. Deploy ERC20 contracts
-	TC->ERC20
-	 */
+	// NOTE we use evm chain snapshot, with state wich already has:
+	// 1. GMP Gateway deployed
+	// 2. TC network registered to it
+	// 3. ERC20 AnlogToken (proxy+implementaion) deployed
 
 	let data = NetworkData {
 		nonce: 0,
 		dest: Static(Address32::new(ERC20.into_word().0)),
 	};
-	//	3. REgister nw 2 @bridge pallet
+	//	4. Register network EVM as teleportation target at pallet_bridge
 	let api = &env.tc.runtime().client;
 	let call = metadata::RuntimeCall::Bridge(BridgeCall::register_network {
 		network: EVM.into(),
@@ -67,6 +58,7 @@ async fn to_erc20() {
 	let sudo_tx = metadata::tx().sudo().sudo(call);
 
 	let from = dev::eve();
+	let from_acc = Address32::new(from.public_key().to_account_id().0);
 	let events = api
 		.tx()
 		.sign_and_submit_then_watch_default(&sudo_tx, &from)
@@ -84,7 +76,10 @@ async fn to_erc20() {
 		.expect("BridgeStatusChanged event missed");
 	tracing::info!(target: "bridge_test", "BridgeStatusChanged event found: {reg_event:?}");
 
-	//	4. Dispatch extrinsic for teleport TC->ERC20
+	let tc_bal_before = &env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
+	tracing::info!(target: "bridge_test", "Sender bal before: {tc_bal_before}");
+
+	//	5. Dispatch extrinsic for teleporting TC->ERC20
 	let tx = metadata::tx().bridge().teleport_keep_alive(
 		EVM.into(),
 		BENEFICIARY.into_word().0,
@@ -105,6 +100,14 @@ async fn to_erc20() {
 		.flatten()
 		.expect("Teleported event missed");
 	tracing::info!(target: "bridge_test", "Teleported event found: {tel_event:?}");
+
+	let tc_bal_after = &env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
+	tracing::info!(target: "bridge_test", "Sender bal after: {tc_bal_after}");
+
+	// Sender paid teleported ampunt plus some fees
+	assert!(tc_bal_after.saturating_add(AMOUNT_OUT) < *tc_bal_before);
+
+
 	/*
 	5. Wait for task to complete (or batch to get tx_hash) & check the resulting balance(s)
 	ERC20->TC
