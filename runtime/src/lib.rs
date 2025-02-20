@@ -85,7 +85,6 @@
 /// The runtime is split into its components
 pub mod apis;
 pub mod configs;
-pub mod migrations;
 pub mod offchain;
 
 pub use apis::RuntimeApi;
@@ -677,7 +676,7 @@ mod runtime {
 }
 
 // All migrations executed on runtime upgrade implementing `OnRuntimeUpgrade`.
-type Migrations = migrations::fix_pool_members::RemoveBuggyPoolMembersMigration<Runtime>;
+type Migrations = ();
 
 #[cfg(test)]
 mod core_tests {
