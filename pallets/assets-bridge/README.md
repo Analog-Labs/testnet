@@ -64,7 +64,7 @@ export MINTER=0xC969dEa46d374E26A9f60A6A71c3Fe186050F35F
 
 2. Set env vars 
 
-   ```sh 
+```sh 
 # well-known (thus key compromised) Anvil default account(0)
 export DEPLOYER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # well-known (thus key compromised) Anvil default account(2)
