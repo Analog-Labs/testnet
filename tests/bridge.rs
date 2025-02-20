@@ -24,16 +24,18 @@ const PROFILE: &str = "bridge";
 
 const GATEWAY: Address20 = address!("0x49877F1e26d523e716d941a424af46B86EcaF09E");
 const ERC20: Address20 = address!("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
+const BENEFICIARY: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const AMOUNT_OUT: u128 = 15_000_000_000_000;
 
 #[tokio::test]
-async fn to_erc20_and_back() {
+async fn to_erc20() {
 	let filter = EnvFilter::from_default_env()
 		.add_directive("tc_cli=info".parse().unwrap())
 		.add_directive("gmp_evm=info".parse().unwrap())
 		.add_directive("bridge_test=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
-	let env = TestEnv::spawn(CONFIG, PROFILE, true)
+	let env = TestEnv::spawn(CONFIG, PROFILE, false)
 		.await
 		.expect("Failed to spawn Test Environment");
 
@@ -57,16 +59,15 @@ async fn to_erc20_and_back() {
 	};
 	//	3. REgister nw 2 @bridge pallet
 	let api = &env.tc.runtime().client;
-	//	let tx = metadata::tx().bridge().register_network(EVM.into(), 0, data);
 	let call = metadata::RuntimeCall::Bridge(BridgeCall::register_network {
 		network: EVM.into(),
 		base_fee: 0,
 		data,
 	});
-	let sudo_tx = metadata::sudo(call);
+	let sudo_tx = metadata::tx().sudo().sudo(call);
 
 	let from = dev::eve();
-	let _events = api
+	let events = api
 		.tx()
 		.sign_and_submit_then_watch_default(&sudo_tx, &from)
 		.await
@@ -76,15 +77,34 @@ async fn to_erc20_and_back() {
 		.unwrap();
 	tracing::info!(target: "bridge_test", "Network {EVM} registered to bridge");
 
+	let reg_event = events
+		.find_first::<metadata::bridge::events::BridgeStatusChanged>()
+		.ok()
+		.flatten()
+		.expect("BridgeStatusChanged event missed");
+	tracing::info!(target: "bridge_test", "BridgeStatusChanged event found: {reg_event:?}");
+
 	//	4. Dispatch extrinsic for teleport TC->ERC20
-	// let _events = api
-	// 	.tx()
-	// 	.sign_and_submit_then_watch_default(&tx, &from)
-	// 	.await
-	// 	.unwrap()
-	// 	.wait_for_finalized_success()
-	// 	.await
-	// 	.unwrap();
+	let tx = metadata::tx().bridge().teleport_keep_alive(
+		EVM.into(),
+		BENEFICIARY.into_word().0,
+		AMOUNT_OUT,
+	);
+	let events = api
+		.tx()
+		.sign_and_submit_then_watch_default(&tx, &from)
+		.await
+		.unwrap()
+		.wait_for_finalized_success()
+		.await
+		.unwrap();
+	tracing::info!(target: "bridge_test", "Amount of {AMOUNT_OUT} teleported out");
+	let tel_event = events
+		.find_first::<metadata::bridge::events::Teleported>()
+		.ok()
+		.flatten()
+		.expect("Teleported event missed");
+	tracing::info!(target: "bridge_test", "Teleported event found: {tel_event:?}");
 	/*
 	5. Wait for task to complete (or batch to get tx_hash) & check the resulting balance(s)
 	ERC20->TC

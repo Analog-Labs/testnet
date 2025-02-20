@@ -49,7 +49,7 @@ impl<'a> Drop for TestEnv<'a> {
 		if !docker_down(self.profile).expect("Failed to stop containers") {
 			println!(
 				"Failed to stop containers, please stop by hand with:\n\
-                       \t $> docker compose --profile=ethereum down"
+		               \t $> docker compose --profile=ethereum down"
 			);
 		};
 	}
