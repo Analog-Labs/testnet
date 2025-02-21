@@ -69,7 +69,7 @@ benchmarks! {
 	}: _(
 		RawOrigin::Signed([0u8; 32].into()),
 		task_id,
-		TaskResult::ReadGatewayEvents { events: GmpEvents(BoundedVec::truncate_from(vec![])), signature: SIGNATURE, remaining: false }
+		TaskResult::ReadGatewayEvents { events: GmpEvents(BoundedVec::truncate_from(vec![])), signature: SIGNATURE }
 	) verify {
 		assert_eq!(TaskOutput::<T>::get(task_id), Some(Ok(())));
 		assert!(TaskShard::<T>::get(task_id).is_none());

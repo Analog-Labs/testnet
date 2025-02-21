@@ -277,14 +277,14 @@ mod tests {
 		tracing::info!("creating task");
 		// Create a task and assign it to the shard.
 		let task_id = mock.create_task(Task::ReadGatewayEvents { blocks: 0..1 });
-		tracing::info!("assigning task");
+		tracing::info!("assigning task {task_id} {shard_id}");
 		mock.assign_task(task_id, shard_id);
 		// Wait for the task to complete.
 		loop {
-			tracing::info!("waiting for task");
+			tracing::info!("waiting for task {task_id}");
 			let task = mock.task(task_id).unwrap();
 			if task.result.is_none() {
-				tokio::time::sleep(Duration::from_secs(1)).await;
+				tokio::time::sleep(Duration::from_secs(10)).await;
 				continue;
 			}
 			break;

@@ -72,6 +72,7 @@ pub mod pallet {
 		AccountId, Balance, BatchBuilder, BatchId, ErrorMsg, GatewayMessage, GatewayOp, GmpEvent,
 		GmpEvents, Hash as TxHash, MessageId, NetworkId, NetworksInterface, PublicKey, ShardId,
 		ShardsInterface, Task, TaskId, TaskResult, TasksInterface, TssPublicKey, TssSignature,
+		MAX_GMP_EVENTS,
 	};
 
 	/// Trait to define the weights for various extrinsics in the pallet.
@@ -356,7 +357,7 @@ pub mod pallet {
 			let result = match (task, result) {
 				(
 					Task::ReadGatewayEvents { blocks },
-					TaskResult::ReadGatewayEvents { events, signature, remaining },
+					TaskResult::ReadGatewayEvents { events, signature },
 				) => {
 					// verify signature
 					let bytes = time_primitives::encode_gmp_events(task_id, &events.0);
@@ -371,6 +372,7 @@ pub mod pallet {
 						Self::read_gateway_events(network);
 					}
 					// process events
+					let remaining = events.0.len() == MAX_GMP_EVENTS as usize;
 					Self::process_events(network, task_id, events);
 					if remaining {
 						// more events to submit in future transactions so task
