@@ -7,7 +7,6 @@ use sp_core::crypto::AccountId32 as Address32;
 use subxt::utils::Static;
 use subxt_signer::sr25519::dev;
 use tc_subxt::metadata;
-use tracing_subscriber::filter::EnvFilter;
 
 use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
 use metadata::runtime_types::pallet_assets_bridge::types::NetworkData;
@@ -39,12 +38,6 @@ sol!(
 
 #[tokio::test]
 async fn to_erc20() {
-	let filter = EnvFilter::from_default_env()
-		.add_directive("tc_cli=info".parse().unwrap())
-		.add_directive("gmp_evm=info".parse().unwrap())
-		.add_directive("bridge_test=info".parse().unwrap());
-	tracing_subscriber::fmt().with_env_filter(filter).init();
-
 	let env = TestEnv::spawn(CONFIG, PROFILE, true)
 		.await
 		.expect("Failed to spawn Test Environment");
