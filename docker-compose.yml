@@ -82,7 +82,7 @@ services:
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
     volumes:
-        - ${PWD}/tmp/anvil/:/etc/anvil/
+        - ${PWD}/tmp/anvil/:/etc/anvil/:ro
     ports:
     - 8545:8545
     profiles:

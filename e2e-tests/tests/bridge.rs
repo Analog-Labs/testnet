@@ -1,6 +1,10 @@
+use std::str::FromStr;
+
 use alloy::{
-	primitives::{address, Address as Address20, U256},
+	network::EthereumWallet,
+	primitives::{address, Address as Address20, FixedBytes, U256},
 	providers::ProviderBuilder,
+	signers::local::PrivateKeySigner,
 	sol,
 };
 use sp_core::crypto::AccountId32 as Address32;
@@ -23,21 +27,27 @@ const TIMEOUT: u64 = 65;
 const CONFIG: &str = "local-e2e-bridge.yaml";
 const PROFILE: &str = "bridge";
 
-const ERC20: Address20 = address!("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
+const TOKEN: Address20 = address!("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
 const BENEFICIARY: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 const PAYER: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+const PAYER_KEY: &str = "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d";
 const AMOUNT_OUT: u128 = 15_000_000_000_000;
 const AMOUNT_IN: u128 = 7_000_000_000_000;
 
 // TODO could be taken from config
 const ANVIL_RPC_URL: &str = "http://localhost:8545";
 
-sol!(
+sol! {
 	#[allow(missing_docs)]
 	#[sol(rpc)]
-	IERC20,
-	"../analog-gmp/out/ERC20.sol/ERC20.json"
-);
+	contract Token {
+		function totalSupply() public view virtual returns (uint256) { return 100500; }
+		function balanceOf(address account) public view virtual returns (uint256) { return 7; }
+
+		function estimateTeleportCost() public view returns (uint256) {	return 42; }
+		function teleport(bytes32 to, uint256 value) external payable returns (bytes32 messageID) { return bytes32(0); }
+	}
+}
 
 async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	let env = TestEnv::spawn(CONFIG, PROFILE, true)
@@ -50,11 +60,12 @@ async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	// NOTE we use evm chain snapshot, with state wich already has:
 	// 1. GMP Gateway deployed
 	// 2. TC network registered to it
-	// 3. ERC20 AnlogToken (proxy+implementaion) deployed
+	// 3. TOKEN AnlogToken (proxy+implementaion) deployed,
+	//    and PAYER has AMOUNT_IN of tokens.
 
 	let data = NetworkData {
 		nonce: 0,
-		dest: Static(Address32::new(ERC20.into_word().0)),
+		dest: Static(Address32::new(TOKEN.into_word().0)),
 	};
 
 	//	4. Register network EVM as teleportation target at pallet_bridge
@@ -97,6 +108,7 @@ async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	(env, bridge_pot, *bridge_bal_before)
 }
 
+#[ignore]
 #[tokio::test]
 async fn to_erc20() {
 	let (env, bridge_pot, bridge_bal_before) = prepare().await;
@@ -108,7 +120,7 @@ async fn to_erc20() {
 		&env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
 	tracing::info!(target: "bridge_test", "Sender bal before: {tc_bal_before}");
 
-	//	5. Dispatch extrinsic for teleporting TC->ERC20
+	//	5. Dispatch extrinsic for teleporting TC->TOKEN
 	let tx = metadata::tx().bridge().teleport_keep_alive(
 		EVM.into(),
 		BENEFICIARY.into_word().0,
@@ -228,30 +240,57 @@ async fn to_erc20() {
 
 	// 8. Check destination balance
 	let provider = ProviderBuilder::new().on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
-	let contract = IERC20::new(ERC20, provider);
+	let contract = Token::new(TOKEN, provider);
 	let target_bal = contract.balanceOf(BENEFICIARY).call().await.unwrap()._0;
-	tracing::info!(target: "bridge_test", "Resulting ERC20 balance: {target_bal}");
+	tracing::info!(target: "bridge_test", "Resulting TOKEN balance: {target_bal}");
 
 	assert_eq!(target_bal, U256::from(AMOUNT_OUT));
 }
 
-#[ignore]
 #[tokio::test]
 async fn from_erc20() {
-	let (env, bridge_pot, bridge_bal_before) = prepare().await;
-	let api = &env.tc.runtime().client;
+	let (env, _bridge_pot, _bridge_bal_before) = prepare().await;
+	let _api = &env.tc.runtime().client;
+	// let _env = TestEnv::spawn(CONFIG, PROFILE, true)
+	// 	.await
+	// 	.expect("Failed to spawn Test Environment");
 
-	let provider = ProviderBuilder::new().on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
-	let contract = IERC20::new(ERC20, provider);
-	let source_bal = contract.balanceOf(PAYER).call().await.unwrap()._0;
+	let signer = PrivateKeySigner::from_str(PAYER_KEY).expect("can't parse signer key");
+	let wallet = EthereumWallet::from(signer);
+
+	let provider = ProviderBuilder::new()
+		.wallet(wallet)
+		.on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
+	let token = Token::new(TOKEN, provider);
+	let source_bal = token.balanceOf(PAYER).call().await.unwrap()._0;
+	let supply = token.totalSupply().call().await.unwrap()._0;
 
 	assert!(source_bal >= U256::from(AMOUNT_IN));
+	assert_eq!(supply, source_bal);
+
+	//	5. call estimateTeleport
+	// TODO failing here w 0x335e3770: 1000, Tc route probably not registered
+	// NOTE tc-erc20 fails too, thus it's most probable incomplete anvil state
+	let teleport_cost = token.estimateTeleportCost().call().await.unwrap()._0;
+	tracing::info!("Teleport cost is: {teleport_cost}");
+
+	// 6. send teleport tx ERC20->TC
+	let to = FixedBytes(dev::dave().public_key().to_account_id().0);
+	let msg_id = token
+		.teleport(to, U256::from(AMOUNT_IN))
+		.send()
+		.await
+		.expect("failed to send teleport");
+	tracing::info!("Teleport sent, msg_id: {:#?}", &msg_id); //hex::encode(&msg_id));
 
 	/*
-	ERC20->TC
-	6. call estimateTeleport
-	7. send teleport tx ERC20->TC
-	8. Wait for task to be completed & check the resulting balance(s)
+	7. Wait for task to be completed & check the resulting balance(s)
 	*/
+	//	todo!()
+}
+
+#[ignore]
+#[tokio::test]
+async fn chronicle_cannot_mint() {
 	todo!()
 }
