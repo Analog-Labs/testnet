@@ -1,23 +1,21 @@
 use alloy::{
-	primitives::{U256, address, Address as Address20},
+	primitives::{address, Address as Address20, U256},
 	providers::ProviderBuilder,
 	sol,
 };
+use sp_core::crypto::AccountId32 as Address32;
+use subxt::utils::Static;
+use subxt_signer::sr25519::dev;
+use tc_subxt::metadata;
+use tracing_subscriber::filter::EnvFilter;
 
 use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
 use metadata::runtime_types::pallet_assets_bridge::types::NetworkData;
-
-use sp_core::crypto::AccountId32 as Address32;
-use tracing_subscriber::filter::EnvFilter;
+use time_primitives::NetworkId;
 
 mod common;
 
 use common::TestEnv;
-use subxt::utils::Static;
-use subxt_signer::sr25519::dev;
-use tc_subxt::metadata;
-
-use time_primitives::NetworkId;
 
 const TC: NetworkId = 1000;
 const EVM: NetworkId = 2;
@@ -146,7 +144,7 @@ async fn to_erc20() {
 
 	let task_id = tsk_event.0;
 
-	// 7. Check source balance(s)
+	// 6. Check source balance(s)
 	let tc_bal_after =
 		&env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
 	tracing::info!(target: "bridge_test", "Sender bal after: {tc_bal_after}");
@@ -162,11 +160,7 @@ async fn to_erc20() {
 	// Bridge Pot should get the exact teleported amount
 	assert_eq!(bridge_bal_after.saturating_sub(*bridge_bal_before), AMOUNT_OUT);
 
-	// 7. Wait for task to complete (or batch to get tx_hash)
-	// TODO
-	// 1. get batch_id from task_id:
-	//    a. batch_id = storage tasks.batch_id_counter - 1
-	//    b. assert storage tasks.batch_task_id(task_id) == batch_id
+	// 7. Wait for task to execute
 	let query = metadata::storage().tasks().batch_id_counter();
 	let batch_id = api
 		.storage()
@@ -193,9 +187,7 @@ async fn to_erc20() {
 	assert_eq!(task_id, task_id1);
 
 	tracing::info!(target: "bridge_test", "Teleport task: {task_id}, batch: {batch_id}");
-	// 2. every next block: query storage tasks.batch_tx_hash(batch_id) until:
-	//    - it gets Some(tx_hash) OR
-	//    - some X blocks timeout
+
 	let query = metadata::storage().tasks().batch_tx_hash(batch_id);
 	let start = block.number();
 	const TIMEOUT: u64 = 65;
@@ -231,18 +223,22 @@ async fn to_erc20() {
 	tracing::info!(target: "bridge_test", "Teleport tx_hash: {:?}", hex::encode(&tx_hash));
 
 	// 8. Check destination balance
-	// TODO with alloy:
-	// cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 	let provider = ProviderBuilder::new().on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
 	let contract = IERC20::new(ERC20, provider);
+	let target_bal = contract.balanceOf(BENEFICIARY).call().await.unwrap()._0;
+	tracing::info!(target: "bridge_test", "Resulting ERC20 balance: {target_bal}");
 
-	let delivered_bal = contract.balanceOf(BENEFICIARY).call().await.unwrap()._0;
+	assert_eq!(target_bal, U256::from(AMOUNT_OUT));
+}
 
-	assert_eq!(delivered_bal, U256::from(AMOUNT_OUT));
+#[ignore]
+#[tokio::test]
+async fn from_erc20() {
 	/*
 	ERC20->TC
 	6. call estimateTeleport
 	7. send teleport tx ERC20->TC
 	8. Wait for task to be completed & check the resulting balance(s)
 	*/
+	todo!()
 }
