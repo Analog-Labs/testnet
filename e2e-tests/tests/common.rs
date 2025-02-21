@@ -9,11 +9,13 @@ pub struct TestEnv<'a> {
 	pub profile: &'a str,
 }
 
-const ENV: &str = "config/envs/local";
+const ENV: &str = "../../config/envs/local";
 
 impl<'a> TestEnv<'a> {
 	async fn new(config: &str, profile: &'a str) -> Result<Self> {
 		let sender = Sender::new();
+		let pbuf = Path::new(ENV).to_path_buf();
+		tracing::warn!("PATH: {}", pbuf.display());
 		let tc = Tc::new(Path::new(ENV).to_path_buf(), config, sender)
 			.await
 			.context("Error creating Tc client")?;
@@ -56,7 +58,7 @@ impl<'a> Drop for TestEnv<'a> {
 }
 
 fn build_containers() -> Result<bool> {
-	let mut cmd = process::Command::new(Path::new("scripts/build_docker.sh"));
+	let mut cmd = process::Command::new(Path::new("../scripts/build_docker.sh"));
 	let mut child = cmd.spawn().context("Error building containers")?;
 
 	child.wait().map(|c| c.success()).context("Error building containers: {e}")

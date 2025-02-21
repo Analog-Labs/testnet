@@ -34,7 +34,7 @@ sol!(
 	#[allow(missing_docs)]
 	#[sol(rpc)]
 	IERC20,
-	"analog-gmp/out/ERC20.sol/ERC20.json"
+	"../analog-gmp/out/ERC20.sol/ERC20.json"
 );
 
 #[tokio::test]
