@@ -1,4 +1,9 @@
-use alloy_core::primitives::{address, Address as Address20};
+use alloy::{
+	primitives::{U256, address, Address as Address20},
+	providers::ProviderBuilder,
+	sol,
+};
+
 use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
 use metadata::runtime_types::pallet_assets_bridge::types::NetworkData;
 
@@ -23,6 +28,16 @@ const PROFILE: &str = "bridge";
 const ERC20: Address20 = address!("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
 const BENEFICIARY: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
 const AMOUNT_OUT: u128 = 15_000_000_000_000;
+
+// TODO could be taken from config
+const ANVIL_RPC_URL: &str = "http://localhost:8545";
+
+sol!(
+	#[allow(missing_docs)]
+	#[sol(rpc)]
+	IERC20,
+	"analog-gmp/out/ERC20.sol/ERC20.json"
+);
 
 #[tokio::test]
 async fn to_erc20() {
@@ -218,7 +233,12 @@ async fn to_erc20() {
 	// 8. Check destination balance
 	// TODO with alloy:
 	// cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+	let provider = ProviderBuilder::new().on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
+	let contract = IERC20::new(ERC20, provider);
 
+	let delivered_bal = contract.balanceOf(BENEFICIARY).call().await.unwrap()._0;
+
+	assert_eq!(delivered_bal, U256::from(AMOUNT_OUT));
 	/*
 	ERC20->TC
 	6. call estimateTeleport
