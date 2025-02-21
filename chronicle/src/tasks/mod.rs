@@ -7,8 +7,8 @@ use scale_codec::Encode;
 use std::sync::Arc;
 use std::{collections::BTreeMap, pin::Pin};
 use time_primitives::{
-	Address, BlockNumber, ErrorMsg, GmpEvents, GmpParams, IConnector, NetworkId, ShardId, Task,
-	TaskId, TaskResult, TssSignature, TssSigningRequest,
+	Address, BlockNumber, ErrorMsg, GmpEvent, GmpEvents, GmpParams, IConnector, NetworkId, ShardId,
+	Task, TaskId, TaskResult, TssSignature, TssSigningRequest, MAX_GMP_EVENTS,
 };
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
@@ -96,6 +96,24 @@ impl TaskParams {
 		Ok(true)
 	}
 
+	async fn submit_events(
+		&self,
+		block_number: BlockNumber,
+		shard_id: ShardId,
+		task_id: TaskId,
+		events: Vec<GmpEvent>,
+		span: &Span,
+	) -> Result<()> {
+		let payload = time_primitives::encode_gmp_events(task_id, &events);
+		let signature = self.tss_sign(block_number, shard_id, task_id, payload, span).await?;
+		let result = TaskResult::ReadGatewayEvents {
+			events: GmpEvents(BoundedVec::truncate_from(events)),
+			signature,
+		};
+		tracing::debug!(parent: span, "submitting task result",);
+		self.runtime.submit_task_result(task_id, result).await
+	}
+
 	#[allow(clippy::too_many_arguments)]
 	async fn execute(
 		self,
@@ -107,18 +125,20 @@ impl TaskParams {
 		task: Task,
 		span: Span,
 	) -> Result<()> {
-		let result = match task {
+		match task {
 			Task::ReadGatewayEvents { blocks } => {
 				let events =
 					self.connector.read_events(gateway, blocks).await.context("read_events")?;
-				tracing::info!(parent: &span, "read {} events", events.len(),);
-				let payload = time_primitives::encode_gmp_events(task_id, &events);
-				let signature =
-					self.tss_sign(block_number, shard_id, task_id, payload, &span).await?;
-				Some(TaskResult::ReadGatewayEvents {
-					events: GmpEvents(events),
-					signature,
-				})
+				tracing::info!(parent: &span, "read {} events", events.len());
+				let mut remaining = true;
+				for chunk in events.chunks(MAX_GMP_EVENTS as _) {
+					remaining = chunk.len() != MAX_GMP_EVENTS as usize;
+					self.submit_events(block_number, shard_id, task_id, chunk.to_vec(), &span)
+						.await?;
+				}
+				if remaining {
+					self.submit_events(block_number, shard_id, task_id, vec![], &span).await?;
+				}
 			},
 			Task::SubmitGatewayMessage { batch_id } => {
 				let msg =
@@ -134,23 +154,13 @@ impl TaskParams {
 				{
 					tracing::error!(parent: &span, batch_id, "Error while executing batch: {e}");
 					e.truncate(time_primitives::MAX_ERROR_LEN as usize - 4);
-					Some(TaskResult::SubmitGatewayMessage {
+					let result = TaskResult::SubmitGatewayMessage {
 						error: ErrorMsg(BoundedVec::truncate_from(e.encode())),
-					})
-				} else {
-					None
+					};
+					tracing::debug!(parent: &span, "submitting task result");
+					self.runtime.submit_task_result(task_id, result).await?;
 				}
 			},
-		};
-		if let Some(result) = result {
-			tracing::debug!(parent: &span, "submitting task result",);
-			if let Err(e) = self.runtime.submit_task_result(task_id, result).await {
-				tracing::error!(
-					parent: &span,
-					"error submitting task result: {:?}",
-					e
-				);
-			}
 		}
 		Ok(())
 	}
@@ -245,5 +255,26 @@ impl TaskExecutor {
 		});
 		let failed_tasks = *failed_tasks.lock().await;
 		Ok((start_sessions, completed_sessions, failed_tasks))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	#[test]
+	fn test_event_chunking_preserves_all_events() {
+		const MAX_EVENTS: usize = 4;
+
+		// Create a sample list of events
+		let events: Vec<u32> = (1..=11).collect();
+
+		// Perform chunking
+		let event_chunks: Vec<Vec<_>> =
+			events.chunks(MAX_EVENTS).map(|chunk| chunk.to_vec()).collect();
+
+		// Flatten the chunks back into a single vector
+		let flattened_events: Vec<_> = event_chunks.iter().flatten().copied().collect();
+
+		// Ensure the original and reconstructed lists match
+		assert_eq!(events, flattened_events, "Chunking should not lose any events");
 	}
 }

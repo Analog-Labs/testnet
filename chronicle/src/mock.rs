@@ -340,6 +340,7 @@ impl Runtime for Mock {
 	}
 
 	async fn submit_task_result(&self, task_id: TaskId, result: TaskResult) -> Result<()> {
+		tracing::info!("submit_task_result {task_id} {result:?}");
 		let mut tasks = self.tasks.lock().unwrap();
 		tasks.get_mut(&task_id).unwrap().result = Some(result);
 		Ok(())
