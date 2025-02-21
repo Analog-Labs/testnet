@@ -14,7 +14,7 @@ use tc_subxt::metadata;
 
 use time_primitives::NetworkId;
 
-const TC: NetworkId = 2;
+const TC: NetworkId = 1000;
 const EVM: NetworkId = 2;
 
 const CONFIG: &str = "local-e2e-bridge.yaml";
@@ -112,7 +112,11 @@ async fn to_erc20() {
 		.expect("Teleported event missed");
 	tracing::info!(target: "bridge_test", "Teleported event found: {tel_event:?}");
 
-	let mut blocks_sub = api.blocks().subscribe_finalized().await.expect("cant' subscribe to finalized blocks");
+	let mut blocks_sub = api
+		.blocks()
+		.subscribe_finalized()
+		.await
+		.expect("cant' subscribe to finalized blocks");
 	let _ = blocks_sub.next().await.expect("cant' get next block");
 	// wait for the next block to get TaskCreated event
 	let block = blocks_sub.next().await.map(|x| x.ok()).flatten().expect("cant' get next block");
@@ -125,6 +129,8 @@ async fn to_erc20() {
 		.expect("TaskCreated event missed");
 	tracing::info!(target: "bridge_test", "TaskCreated event found: {tsk_event:?}");
 
+	let task_id = tsk_event.0;
+
 	// 7. Check source balance(s)
 	let tc_bal_after =
 		&env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
@@ -136,15 +142,82 @@ async fn to_erc20() {
 		.await
 		.expect("cannot query bridge balance");
 	tracing::info!(target: "bridge_test", "Bridge bal after: {bridge_bal_after}");
-
 	// Sender paid teleported amount plus some fees
 	assert!(tc_bal_after.saturating_add(AMOUNT_OUT) < *tc_bal_before);
 	// Bridge Pot should get the exact teleported amount
 	assert_eq!(bridge_bal_after.saturating_sub(*bridge_bal_before), AMOUNT_OUT);
 
 	// 7. Wait for task to complete (or batch to get tx_hash)
+	// TODO
+	// 1. get batch_id from task_id:
+	//    a. batch_id = storage tasks.batch_id_counter - 1
+	//    b. assert storage tasks.batch_task_id(task_id) == batch_id
+	let query = metadata::storage().tasks().batch_id_counter();
+	let batch_id = api
+		.storage()
+		.at_latest()
+		.await
+		.unwrap()
+		.fetch(&query)
+		.await
+		.ok()
+		.flatten()
+		.expect("cant query batch_id")
+		.saturating_sub(1);
+	let query = metadata::storage().tasks().batch_task_id(batch_id);
+	let task_id1 = api
+		.storage()
+		.at_latest()
+		.await
+		.unwrap()
+		.fetch(&query)
+		.await
+		.ok()
+		.flatten()
+		.expect("cant query batch_task_id");
+	assert_eq!(task_id, task_id1);
+
+	tracing::info!(target: "bridge_test", "Teleport task: {task_id}, batch: {batch_id}");
+	// 2. every next block: query storage tasks.batch_tx_hash(batch_id) until:
+	//    - it gets Some(tx_hash) OR
+	//    - some X blocks timeout
+	let query = metadata::storage().tasks().batch_tx_hash(batch_id);
+	let start = block.number();
+	const TIMEOUT: u64 = 65;
+
+	let tx_hash = loop {
+		let bn = blocks_sub
+			.next()
+			.await
+			.map(|x| x.ok())
+			.flatten()
+			.expect("cant' get next block")
+			.number();
+
+		tracing::info!(target: "bridge_test", "Waiting for task: {task_id} to be executed... TC block: #{bn}");
+
+		if let Some(tx_hash) = api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&query)
+			.await
+			.expect("cant query batch_id")
+		{
+			break tx_hash;
+		}
+
+		if (bn.saturating_sub(start) as u64) > TIMEOUT {
+			panic!("Teleport task was not executed within {TIMEOUT} blocks")
+		}
+	};
+
+	tracing::info!(target: "bridge_test", "Teleport tx_hash: {:?}", hex::encode(&tx_hash));
 
 	// 8. Check destination balance
+	// TODO with alloy:
+	// cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 
 	/*
 	ERC20->TC
