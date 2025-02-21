@@ -18,13 +18,16 @@ use common::TestEnv;
 
 const TC: NetworkId = 1000;
 const EVM: NetworkId = 2;
+const TIMEOUT: u64 = 65;
 
 const CONFIG: &str = "local-e2e-bridge.yaml";
 const PROFILE: &str = "bridge";
 
 const ERC20: Address20 = address!("0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0");
 const BENEFICIARY: Address20 = address!("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266");
+const PAYER: Address20 = address!("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
 const AMOUNT_OUT: u128 = 15_000_000_000_000;
+const AMOUNT_IN: u128 = 7_000_000_000_000;
 
 // TODO could be taken from config
 const ANVIL_RPC_URL: &str = "http://localhost:8545";
@@ -36,8 +39,7 @@ sol!(
 	"../analog-gmp/out/ERC20.sol/ERC20.json"
 );
 
-#[tokio::test]
-async fn to_erc20() {
+async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	let env = TestEnv::spawn(CONFIG, PROFILE, true)
 		.await
 		.expect("Failed to spawn Test Environment");
@@ -65,7 +67,6 @@ async fn to_erc20() {
 	let sudo_tx = metadata::tx().sudo().sudo(call);
 
 	let from = dev::eve();
-	let from_acc = Address32::new(from.public_key().to_account_id().0);
 	let events = api
 		.tx()
 		.sign_and_submit_then_watch_default(&sudo_tx, &from)
@@ -83,9 +84,6 @@ async fn to_erc20() {
 		.expect("BridgeStatusChanged event missed");
 	tracing::info!(target: "bridge_test", "BridgeStatusChanged event found: {reg_event:?}");
 
-	let tc_bal_before =
-		&env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
-	tracing::info!(target: "bridge_test", "Sender bal before: {tc_bal_before}");
 	let query = metadata::constants().bridge().bridge_pot();
 	let bridge_pot = api.constants().at(&query).expect("cannot query bridge pot address");
 	let bridge_bal_before = &env
@@ -95,6 +93,20 @@ async fn to_erc20() {
 		.await
 		.expect("cannot query bridge balance");
 	tracing::info!(target: "bridge_test", "Bridge bal before: {bridge_bal_before}");
+
+	(env, bridge_pot, *bridge_bal_before)
+}
+
+#[tokio::test]
+async fn to_erc20() {
+	let (env, bridge_pot, bridge_bal_before) = prepare().await;
+	let api = &env.tc.runtime().client;
+
+	let from = dev::eve();
+	let from_acc = Address32::new(from.public_key().to_account_id().0);
+	let tc_bal_before =
+		&env.tc.runtime().balance(&from_acc).await.expect("cannot query sender balance");
+	tracing::info!(target: "bridge_test", "Sender bal before: {tc_bal_before}");
 
 	//	5. Dispatch extrinsic for teleporting TC->ERC20
 	let tx = metadata::tx().bridge().teleport_keep_alive(
@@ -151,7 +163,7 @@ async fn to_erc20() {
 	// Sender paid teleported amount plus some fees
 	assert!(tc_bal_after.saturating_add(AMOUNT_OUT) < *tc_bal_before);
 	// Bridge Pot should get the exact teleported amount
-	assert_eq!(bridge_bal_after.saturating_sub(*bridge_bal_before), AMOUNT_OUT);
+	assert_eq!(bridge_bal_after.saturating_sub(bridge_bal_before), AMOUNT_OUT);
 
 	// 7. Wait for task to execute
 	let query = metadata::storage().tasks().batch_id_counter();
@@ -183,7 +195,6 @@ async fn to_erc20() {
 
 	let query = metadata::storage().tasks().batch_tx_hash(batch_id);
 	let start = block.number();
-	const TIMEOUT: u64 = 65;
 
 	let tx_hash = loop {
 		let bn = blocks_sub
@@ -227,6 +238,15 @@ async fn to_erc20() {
 #[ignore]
 #[tokio::test]
 async fn from_erc20() {
+	let (env, bridge_pot, bridge_bal_before) = prepare().await;
+	let api = &env.tc.runtime().client;
+
+	let provider = ProviderBuilder::new().on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
+	let contract = IERC20::new(ERC20, provider);
+	let source_bal = contract.balanceOf(PAYER).call().await.unwrap()._0;
+
+	assert!(source_bal >= U256::from(AMOUNT_IN));
+
 	/*
 	ERC20->TC
 	6. call estimateTeleport
