@@ -64,7 +64,7 @@ export MINTER=0xC969dEa46d374E26A9f60A6A71c3Fe186050F35F
 
 2. Set env vars 
 
-   ```sh 
+```sh 
 # well-known (thus key compromised) Anvil default account(0)
 export DEPLOYER=0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
 # well-known (thus key compromised) Anvil default account(2)
@@ -134,7 +134,7 @@ Paid: 0.000112896 ETH (37632 gas * 3 gwei)
 
 Register a new (or update an existing) network for teleportation at bridge pallet: 
 
-call `bridge/register_network extrinsic` (or `force_update_network`) from sudo with following parameters:
+call `bridge/register_network` extrinsic (or `force_update_network`) from sudo with following parameters:
 
 + network: `2`
 + baseFee: 0
@@ -155,7 +155,7 @@ cast call $PROXY "balanceOf(address)(uint256)" 0xf39Fd6e51aad88F6F4ce6aB8827279c
 0
 ```
 
-Send teleport_keep_alive extrinsic from any account having ANLOG (e.g. `//Eve`):
+Send `teleport_keep_alive` extrinsic from any account having ANLOG (e.g. `//Eve`):
 
 + network_id: `2`
 + beneficiary: `0x000000000000000000000000f39Fd6e51aad88F6F4ce6aB8827279cffFb92266`

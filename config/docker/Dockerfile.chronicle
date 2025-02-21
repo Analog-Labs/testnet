@@ -1,3 +1,4 @@
 FROM scratch
 COPY chronicle chronicle
+
 ENTRYPOINT ["/chronicle"]

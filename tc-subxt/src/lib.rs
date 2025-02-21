@@ -14,7 +14,7 @@ use subxt::PolkadotConfig;
 use subxt_signer::SecretUri;
 use timechain_client::{IExtrinsic, TimechainExtrinsic, TimechainOnlineClient};
 
-use time_primitives::{AccountId, BlockHash, BlockNumber, PublicKey, H256};
+use time_primitives::{AccountId, BlockHash, BlockNumber, NetworkId, PublicKey, H256};
 
 mod api;
 pub mod db;
@@ -35,7 +35,7 @@ pub type ExtrinsicParams =
 	<DefaultExtrinsicParams<PolkadotConfig> as subxt::config::ExtrinsicParams<PolkadotConfig>>::Params;
 
 pub struct SubxtClient {
-	client: OnlineClient,
+	pub client: OnlineClient,
 	tx: mpsc::UnboundedSender<(Tx, oneshot::Sender<TimechainExtrinsic>)>,
 	public_key: PublicKey,
 	account_id: AccountId,
@@ -132,6 +132,14 @@ impl SubxtClient {
 	pub async fn is_success<E: IExtrinsic>(&self, extrinsic: &E) -> Result<()> {
 		extrinsic.is_success().await?;
 		Ok(())
+	}
+
+	pub async fn tc_network_id(&self) -> Result<NetworkId> {
+		let query = metadata::constants().networks().timechain_network_id();
+		self.client
+			.constants()
+			.at(&query)
+			.context("failed to query timechain network id")
 	}
 }
 

@@ -2,8 +2,8 @@ use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
 
 use frame_support::PalletId;
-use polkadot_sdk::*;
 use polkadot_sdk::sp_runtime::traits::AccountIdConversion;
+use polkadot_sdk::*;
 
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_chain_spec::{json_merge, ChainSpecExtension};
@@ -36,7 +36,6 @@ const DEFAULT_TELEMETRY_URL: &str = "wss://telemetry.analog.one/submit";
 const DEFAULT_TELEMETRY_LEVEL: u8 = 1;
 
 const BRIDGE_PALLET_ID: PalletId = PalletId(*b"py/bridg");
-const ED: Balance = 1 * ANLOG;
 
 /// Node `ChainSpec` extensions.
 ///
@@ -90,7 +89,7 @@ impl Default for GenesisKeysConfig {
 				Alice.to_raw_public().unchecked_into(),
 			)],
 			chronicles: vec![],
-			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), ED)],
+			endowments: vec![(BRIDGE_PALLET_ID.into_account_truncating(), 1)],
 			stakes: vec![Alice.into(), Bob.into(), Charlie.into(), Dave.into()],
 		}
 	}

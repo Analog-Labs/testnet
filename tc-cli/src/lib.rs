@@ -46,9 +46,14 @@ pub struct Tc {
 	runtime: SubxtClient,
 	connectors: HashMap<NetworkId, Arc<dyn IConnectorAdmin>>,
 	msg: Sender,
+	tc_network_id: NetworkId,
 }
 
 impl Tc {
+	pub fn runtime(&self) -> &SubxtClient {
+		&self.runtime
+	}
+
 	pub async fn new(env: PathBuf, config: &str, msg: Sender) -> Result<Self> {
 		dotenv::from_path(env.join(".env")).ok();
 		let config = Config::from_env(env, config)?;
@@ -95,11 +100,13 @@ impl Tc {
 			}
 		}
 		let runtime = runtime.await??;
+		let tc_network_id = runtime.tc_network_id().await?;
 		Ok(Self {
 			config,
 			runtime,
 			connectors,
 			msg,
+			tc_network_id,
 		})
 	}
 
@@ -110,7 +117,7 @@ impl Tc {
 			.with_context(|| format!("no connector configured for {network}"))?)
 	}
 
-	async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
+	pub async fn gateway(&self, network: NetworkId) -> Result<(&dyn IConnectorAdmin, Gateway)> {
 		let connector = self.connector(network)?;
 		let gateway = self
 			.runtime
@@ -685,7 +692,7 @@ impl Tc {
 	pub async fn set_tc_route(&self, src: NetworkId, src_gateway: Gateway) -> Result<()> {
 		let connector = self.connector(src)?;
 		let route = Route {
-			network_id: 1000,
+			network_id: self.tc_network_id,
 			// note: TC does not have GW,
 			// but GMP GW does not accept 0x here,
 			// hence we set it to src_gateway as well.
@@ -1078,14 +1085,18 @@ impl Tc {
 		// networks
 		self.deploy().await?;
 		let (src_addr, src_block) = self.deploy_tester(src).await?;
-		let (dest_addr, dest_block) = self.deploy_tester(dest).await?;
-		tracing::info!("deployed at src block {}, dest block {}", src_block, dest_block);
-		/*let networks = self.networks().await?;
-		self.print_table(None, "networks", networks.clone()).await?;
-		for network in networks {
-			let routes = self.routes(network.network).await?;
-			self.print_table(None, "routes", routes).await?;
-		}*/
+		tracing::info!("deployed tester to src network at block {}", src_block);
+
+		let mut dest_addr: Address = Default::default();
+
+		if dest != self.tc_network_id {
+			let (dest_address, dest_block) = self.deploy_tester(dest).await?;
+			tracing::info!("deployed tester to dest network at block {}", dest_block);
+			dest_addr = dest_address;
+		} else {
+			tracing::info!("dest chain is Timechain");
+		}
+
 		// chronicles
 		let mut blocks = self.finality_notification_stream();
 		let mut id = None;
@@ -1103,7 +1114,7 @@ impl Tc {
 		while blocks.next().await.is_some() {
 			let src_keys = self.find_online_shard_keys(src).await?;
 			let dest_keys = self.find_online_shard_keys(dest).await?;
-			if !src_keys.is_empty() && !dest_keys.is_empty() {
+			if !src_keys.is_empty() && (!dest_keys.is_empty() || dest == self.tc_network_id) {
 				break;
 			}
 			tracing::info!("waiting for shards to come online");
@@ -1112,11 +1123,14 @@ impl Tc {
 		}
 		// registered shards
 		self.register_shards(src).await?;
-		self.register_shards(dest).await?;
+		if dest != self.tc_network_id {
+			self.register_shards(dest).await?;
+		}
 		while blocks.next().await.is_some() {
 			let shards = self.shards().await?;
-			let is_registered =
-				shards.iter().any(|shard| shard.registered && shard.network == dest);
+			let is_registered = shards.iter().any(|shard| {
+				shard.registered && (shard.network == dest || dest == self.tc_network_id)
+			});
 			tracing::info!("waiting for shard to be registered");
 			id = Some(self.print_table(id, "shards", shards).await?);
 			if is_registered {

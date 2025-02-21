@@ -10,6 +10,9 @@ use time_primitives::{Address, NetworkId};
 const SRC: NetworkId = 2;
 const DEST: NetworkId = 3;
 
+const CONFIG: &str = "local-e2e-smoke.yaml";
+const PROFILE: &str = "evm";
+
 async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) {
 	let mut blockstream = tc.finality_notification_stream();
 	let (_, start) = blockstream.next().await.expect("expected block");
@@ -56,9 +59,11 @@ async fn smoke() {
 		.add_directive("smoke_test=info".parse().unwrap());
 	tracing_subscriber::fmt().with_env_filter(filter).init();
 
-	let env = TestEnv::spawn(true).await.expect("Failed to spawn Test Environment");
+	let env = TestEnv::spawn(CONFIG, PROFILE, true)
+		.await
+		.expect("Failed to spawn Test Environment");
 
-	let (src_addr, dest_addr) = env.setup(SRC, DEST).await.expect("failed to setup test");
+	let (src_addr, dest_addr) = env.setup_test(SRC, DEST).await.expect("failed to setup test");
 
 	// Run smoke test
 	run_smoke(&env.tc, src_addr, dest_addr).await;
