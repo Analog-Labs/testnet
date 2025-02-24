@@ -1,15 +1,19 @@
 use std::str::FromStr;
-
+use futures::prelude::stream::StreamExt;
 use alloy::{
+	eips::BlockNumberOrTag,
 	network::EthereumWallet,
 	primitives::{address, Address as Address20, FixedBytes, U256},
-	providers::ProviderBuilder,
+	providers::{Provider, ProviderBuilder, WsConnect},
+	rpc::types::Filter,
 	signers::local::PrivateKeySigner,
-	sol,
+	sol, sol_types::SolEvent,
 };
 use sp_core::crypto::AccountId32 as Address32;
 use subxt::utils::Static;
 use subxt_signer::sr25519::dev;
+
+
 use tc_subxt::metadata;
 
 use metadata::runtime_types::pallet_assets_bridge::pallet::Call as BridgeCall;
@@ -36,11 +40,14 @@ const AMOUNT_IN: u128 = 7_000_000_000_000;
 
 // TODO could be taken from config
 const ANVIL_RPC_URL: &str = "http://localhost:8545";
+const ANVIL_RPC_URL_WS: &str = "ws://localhost:8545";
 
 sol! {
 	#[allow(missing_docs)]
 	#[sol(rpc)]
 	contract Token {
+		event OutboundTransfer(bytes32 indexed id, address indexed source, bytes32 indexed recipient, uint256 amount);
+
 		function totalSupply() public view virtual returns (uint256) { return 100500; }
 		function balanceOf(address account) public view virtual returns (uint256) { return 7; }
 
@@ -50,7 +57,7 @@ sol! {
 }
 
 async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
-	let env = TestEnv::spawn(CONFIG, PROFILE, true)
+	let env = TestEnv::spawn(CONFIG, PROFILE, false)
 		.await
 		.expect("Failed to spawn Test Environment");
 
@@ -257,10 +264,17 @@ async fn from_erc20() {
 	let signer = PrivateKeySigner::from_str(PAYER_KEY).expect("can't parse signer key");
 	let wallet = EthereumWallet::from(signer);
 
+	let ws = WsConnect::new(ANVIL_RPC_URL_WS);
 	let provider = ProviderBuilder::new()
 		.wallet(wallet)
-		.on_http(ANVIL_RPC_URL.parse().expect("bad RPC_URL"));
-	let token = Token::new(TOKEN, provider);
+		.on_ws(ws)
+		.await
+		.expect("can't build provider");
+
+	let latest_block = provider.get_block_number().await.unwrap();
+	tracing::info!(target: "bridge_test", "[network {EVM}] latest block is #{latest_block}");
+
+	let token = Token::new(TOKEN, provider.clone());
 	let source_bal = token.balanceOf(PAYER).call().await.unwrap()._0;
 	let supply = token.totalSupply().call().await.unwrap()._0;
 
@@ -271,9 +285,15 @@ async fn from_erc20() {
 	let teleport_cost = token.estimateTeleportCost().call().await.unwrap()._0;
 	tracing::info!(target: "bridge_test", "Teleport cost is: {teleport_cost}");
 
+	let filter = Filter::new()
+		.event(Token::OutboundTransfer::SIGNATURE)
+		.from_block(BlockNumberOrTag::Number(latest_block));
+	let sub = provider.subscribe_logs(&filter).await.unwrap();
+	let mut stream = sub.into_stream();
+
 	// 6. send teleport tx ERC20->TC
 	let to = FixedBytes(dev::dave().public_key().to_account_id().0);
-	let msg_id = token
+	let tx_hash = token
 		.teleport(to, U256::from(AMOUNT_IN))
 		.value(teleport_cost)
 		.send()
@@ -285,8 +305,17 @@ async fn from_erc20() {
 		.await
 		.expect("teleport tx failed");
 
-	tracing::info!(target: "bridge_test", "Teleport sent, msg_id: {:#?}", &msg_id);
-	//hex::encode(&msg_id));
+	tracing::info!(target: "bridge_test", "Teleport sent, tx_hash: {:#?}", &tx_hash);
+	tracing::info!(target: "bridge_test", "Waiting for event...");
+	tracing::info!(target: "bridge_test", "Event hash: {}", &Token::OutboundTransfer::SIGNATURE_HASH);
+
+
+	let teleport_event =
+		stream.next().await.expect("can't get OutboundTransfer() event");
+	let Token::OutboundTransfer { id, .. } =
+		teleport_event.log_decode().expect("can't decode event").inner.data;
+
+	tracing::info!(target: "bridge_test", "Event found, msg_id: {:#?}", &id);
 
 	/*
 	7. Wait for task to be completed & check the resulting balance(s)
