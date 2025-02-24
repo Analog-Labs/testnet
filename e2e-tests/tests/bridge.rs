@@ -13,6 +13,7 @@ use sp_core::crypto::AccountId32 as Address32;
 use std::str::FromStr;
 use subxt::utils::Static;
 use subxt_signer::sr25519::dev;
+use test_log::test;
 
 use tc_subxt::metadata;
 
@@ -115,7 +116,7 @@ async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	(env, bridge_pot, *bridge_bal_before)
 }
 
-#[tokio::test]
+#[test(tokio::test)]
 async fn to_erc20() {
 	let (env, bridge_pot, bridge_bal_before) = prepare().await;
 	let api = &env.tc.runtime().client;
@@ -253,7 +254,7 @@ async fn to_erc20() {
 	assert_eq!(target_bal, U256::from(AMOUNT_OUT));
 }
 
-#[tokio::test]
+#[test(tokio::test)]
 async fn from_erc20() {
 	let to = dev::dave().public_key().to_account_id().0;
 

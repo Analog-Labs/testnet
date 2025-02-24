@@ -25,12 +25,6 @@ impl<'a> TestEnv<'a> {
 
 	/// spawns new testing env
 	pub async fn spawn(config: &str, profile: &'a str, build: bool) -> Result<Self> {
-		let filter = EnvFilter::from_default_env()
-			.add_directive("tc_cli=info".parse().unwrap())
-			.add_directive("gmp_evm=info".parse().unwrap())
-			.add_directive("bridge_test=info".parse().unwrap());
-		tracing_subscriber::fmt().with_env_filter(filter).init();
-
 		if build && !build_containers()? {
 			anyhow::bail!("Failed to build containers");
 		}
