@@ -59,7 +59,7 @@ async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 
 	// NOTE we use evm chain snapshot, with state wich already has:
 	// 1. GMP Gateway deployed
-	// 2. TC network registered to it
+	// 2. TC network (route) registered to it
 	// 3. TOKEN AnlogToken (proxy+implementaion) deployed,
 	//    and PAYER has AMOUNT_IN of tokens.
 
@@ -108,7 +108,6 @@ async fn prepare() -> (TestEnv<'static>, Static<Address32>, u128) {
 	(env, bridge_pot, *bridge_bal_before)
 }
 
-#[ignore]
 #[tokio::test]
 async fn to_erc20() {
 	let (env, bridge_pot, bridge_bal_before) = prepare().await;
@@ -269,19 +268,25 @@ async fn from_erc20() {
 	assert_eq!(supply, source_bal);
 
 	//	5. call estimateTeleport
-	// TODO failing here w 0x335e3770: 1000, Tc route probably not registered
-	// NOTE tc-erc20 fails too, thus it's most probable incomplete anvil state
 	let teleport_cost = token.estimateTeleportCost().call().await.unwrap()._0;
-	tracing::info!("Teleport cost is: {teleport_cost}");
+	tracing::info!(target: "bridge_test", "Teleport cost is: {teleport_cost}");
 
 	// 6. send teleport tx ERC20->TC
 	let to = FixedBytes(dev::dave().public_key().to_account_id().0);
 	let msg_id = token
 		.teleport(to, U256::from(AMOUNT_IN))
+		.value(teleport_cost)
 		.send()
 		.await
-		.expect("failed to send teleport");
-	tracing::info!("Teleport sent, msg_id: {:#?}", &msg_id); //hex::encode(&msg_id));
+		.expect("failed to send teleport tx")
+		.with_required_confirmations(1)
+		.with_timeout(Some(std::time::Duration::from_secs(3)))
+		.watch()
+		.await
+		.expect("teleport tx failed");
+
+	tracing::info!(target: "bridge_test", "Teleport sent, msg_id: {:#?}", &msg_id);
+	//hex::encode(&msg_id));
 
 	/*
 	7. Wait for task to be completed & check the resulting balance(s)
