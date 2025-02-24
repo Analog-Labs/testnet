@@ -42,6 +42,7 @@ impl SlackState {
 	pub async fn update_command_info(&self, info: CommandInfo) -> Result<()> {
 		let session = self.client.open_session(&self.token);
 		let channel = info.env.channel();
+		let tag: Option<String> = info.command.tag().map(|tag| tag.chars().take(8).collect());
 		let content = SlackMessageContent::new()
 			.with_text(info.command.to_string())
 			.with_attachments(vec![SlackMessageAttachment::new()
@@ -61,8 +62,8 @@ impl SlackState {
 							"*Commit*\n`{} ({})`{}",
 							&info.commit[..8],
 							info.command.branch(),
-							info.command.tag()
-							.map(|tag| format!("\n\n*Version*\n`{}`", &tag[..8])).unwrap_or_default()
+							tag
+							.map(|tag| format!("\n\n*Version*\n`{}`", tag)).unwrap_or_default(),
 						))
 						.into(),
 					],
