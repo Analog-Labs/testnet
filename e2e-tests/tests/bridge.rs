@@ -1,18 +1,18 @@
-use std::str::FromStr;
-use futures::prelude::stream::StreamExt;
 use alloy::{
 	eips::BlockNumberOrTag,
 	network::EthereumWallet,
-	primitives::{address, Address as Address20, FixedBytes, U256},
+	primitives::{address, Address as Address20,  U256},
 	providers::{Provider, ProviderBuilder, WsConnect},
 	rpc::types::Filter,
 	signers::local::PrivateKeySigner,
-	sol, sol_types::SolEvent,
+	sol,
+	sol_types::SolEvent,
 };
+use futures::prelude::stream::StreamExt;
 use sp_core::crypto::AccountId32 as Address32;
+use std::str::FromStr;
 use subxt::utils::Static;
 use subxt_signer::sr25519::dev;
-
 
 use tc_subxt::metadata;
 
@@ -255,11 +255,42 @@ async fn to_erc20() {
 
 #[tokio::test]
 async fn from_erc20() {
-	let (env, _bridge_pot, _bridge_bal_before) = prepare().await;
-	let _api = &env.tc.runtime().client;
-	// let _env = TestEnv::spawn(CONFIG, PROFILE, true)
-	// 	.await
-	// 	.expect("Failed to spawn Test Environment");
+	let to = dev::dave().public_key().to_account_id().0;
+
+	let (env, bridge_pot, _) = prepare().await;
+	let api = &env.tc.runtime().client;
+
+	// Transfer some amount to bridge in order to be able to teleport it back
+	let transfer_tx = metadata::tx().balances().transfer_allow_death(bridge_pot.clone().into(), AMOUNT_IN);
+	let from = dev::eve();
+	tracing::info!(target: "bridge_test", "Topping up The Bridge Pot...");
+	let events = api
+		.tx()
+		.sign_and_submit_then_watch_default(&transfer_tx, &from)
+		.await.unwrap()
+		.wait_for_finalized_success()
+		.await.unwrap();
+
+	// Find a Transfer event and print it.
+	let _transfer_event = events
+		.find_first::<metadata::balances::events::Transfer>()
+		.ok()
+		.flatten()
+		.expect("failed to top-up bridge");
+
+	let bridge_bal_before = &env
+		.tc
+		.runtime()
+		.balance(&bridge_pot)
+		.await
+		.expect("cannot query bridge balance");
+	tracing::info!(target: "bridge_test", "Bridge Pot balance: {bridge_bal_before}");
+	let tc_bal_before = &env
+		.tc
+		.runtime()
+		.balance(&to.into())
+		.await
+		.expect("cannot query reciever balance");
 
 	let signer = PrivateKeySigner::from_str(PAYER_KEY).expect("can't parse signer key");
 	let wallet = EthereumWallet::from(signer);
@@ -292,9 +323,8 @@ async fn from_erc20() {
 	let mut stream = sub.into_stream();
 
 	// 6. send teleport tx ERC20->TC
-	let to = FixedBytes(dev::dave().public_key().to_account_id().0);
 	let tx_hash = token
-		.teleport(to, U256::from(AMOUNT_IN))
+		.teleport(to.into(), U256::from(AMOUNT_IN))
 		.value(teleport_cost)
 		.send()
 		.await
@@ -309,18 +339,75 @@ async fn from_erc20() {
 	tracing::info!(target: "bridge_test", "Waiting for event...");
 	tracing::info!(target: "bridge_test", "Event hash: {}", &Token::OutboundTransfer::SIGNATURE_HASH);
 
-
-	let teleport_event =
-		stream.next().await.expect("can't get OutboundTransfer() event");
+	let teleport_event = stream.next().await.expect("can't get OutboundTransfer() event");
 	let Token::OutboundTransfer { id, .. } =
 		teleport_event.log_decode().expect("can't decode event").inner.data;
 
 	tracing::info!(target: "bridge_test", "Event found, msg_id: {:#?}", &id);
 
-	/*
-	7. Wait for task to be completed & check the resulting balance(s)
-	*/
-	//	todo!()
+	let source_bal_after = token.balanceOf(PAYER).call().await.unwrap()._0;
+	let supply_after = token.totalSupply().call().await.unwrap()._0;
+
+	assert_eq!(source_bal.saturating_sub(source_bal_after), U256::from(AMOUNT_IN));
+	assert_eq!(supply.saturating_sub(supply_after), U256::from(AMOUNT_IN));
+
+	//	7. Wait for task to be completed
+	let mut blocks_sub = api
+		.blocks()
+		.subscribe_finalized()
+		.await
+		.expect("cant' subscribe to finalized blocks");
+
+	let start = blocks_sub
+		.next()
+		.await
+		.map(|x| x.ok())
+		.flatten()
+		.expect("cant' get next block")
+		.number();
+	let query = metadata::storage().tasks().message_received_task_id(id);
+
+	let _task_id = loop {
+		let bn = blocks_sub
+			.next()
+			.await
+			.map(|x| x.ok())
+			.flatten()
+			.expect("cant' get next TC block")
+			.number();
+
+		tracing::info!(target: "bridge_test", "Waiting for msg: {id} to be received... TC block: #{bn}");
+
+		if let Some(tx_hash) = api
+			.storage()
+			.at_latest()
+			.await
+			.unwrap()
+			.fetch(&query)
+			.await
+			.expect("cant query task_id")
+		{
+			break tx_hash;
+		}
+
+		if (bn.saturating_sub(start) as u64) > TIMEOUT {
+			panic!("Teleport task was not executed within {TIMEOUT} blocks")
+		}
+	};
+
+	// 8. Check resulting balance(s)
+	let bridge_bal_after = &env
+		.tc
+		.runtime()
+		.balance(&bridge_pot)
+		.await
+		.expect("cannot query bridge balance");
+
+	let tc_bal_after =
+		&env.tc.runtime().balance(&to.into()).await.expect("cannot query reciever balance");
+
+	assert_eq!(bridge_bal_before.saturating_sub(*bridge_bal_after), AMOUNT_IN);
+	assert_eq!(tc_bal_after.saturating_sub(*tc_bal_before), AMOUNT_IN);
 }
 
 #[ignore]
