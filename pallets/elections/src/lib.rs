@@ -205,10 +205,7 @@ pub mod pallet {
 			Unassigned::<T>::mutate(network, |unassigned| {
 				unassigned.retain(|m| !members.contains(m));
 			});
-			// TODO: shards::batch_member_offline
-			for m in members {
-				T::Shards::member_offline(&m, network);
-			}
+			T::Shards::members_offline(members);
 		}
 	}
 

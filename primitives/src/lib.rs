@@ -185,6 +185,7 @@ pub trait ElectionsInterface {
 pub trait ShardsInterface {
 	fn member_online(id: &AccountId, network: NetworkId);
 	fn member_offline(id: &AccountId, network: NetworkId);
+	fn members_offline(members: Vec<AccountId>);
 	fn is_shard_online(shard_id: ShardId) -> bool;
 	fn is_shard_member(account: &AccountId) -> bool;
 	fn shard_members(shard_id: ShardId) -> Vec<AccountId>;
