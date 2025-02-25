@@ -69,7 +69,9 @@ jobs:
         if: ${{ always() }}
         run: |
           mkdir -p logs
+          echo "Uploading container logs"
           for container in $(docker compose ps --services); do
+            echo "Export logs for $container"
             docker compose logs "$container" > "logs/$container.log"
           done
           aws s3 cp logs "s3://${BUCKET_NAME}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}" --recursive
