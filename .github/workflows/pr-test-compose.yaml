@@ -6,6 +6,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+env:
+  BUCKET_NAME: compose-test-logs
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
@@ -70,7 +72,7 @@ jobs:
           for container in $(docker compose ps --services); do
             docker compose logs "$container" > "logs/$container.log"
           done
-          aws s3 cp logs "s3://compose-test-logs/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}" --recursive
+          aws s3 cp logs "s3://${BUCKET_NAME}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}" --recursive
       - name: Cleanup
         if: ${{ always() }}
         run: |
