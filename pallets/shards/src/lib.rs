@@ -514,44 +514,6 @@ pub mod pallet {
 				_ => (),
 			}
 		}
-		/// Handles shard state adjustments when a member goes offline.
-		///
-		/// # Flow
-		///   1. Retrieves the `shard_id` associated with the member `id`.
-		///   2. Retrieves the current `old_status`, `shard_threshold`, and `members_online` count.
-		///   3. Decrements the count of online members [`ShardMembersOnline`].
-		///   4. Determines the new_status of the shard based on the conditions:
-		///     - If transitioning to `Offline` and not previously `Offline`, calls `Function::remove_shard_offline`.
-		///     - Updates [`ShardState`] with the new new_status.
-		///   5. Returns the weight of the operation as specified by `<T as Config>::WeightInfo::member_offline()`.
-		fn member_offline(id: &AccountId, _: NetworkId) {
-			let Some(shard_id) = MemberShard::<T>::get(id) else { return };
-			let Some(old_status) = ShardState::<T>::get(shard_id) else { return };
-			let Some(shard_threshold) = ShardThreshold::<T>::get(shard_id) else { return };
-			let mut members_online = ShardMembersOnline::<T>::get(shard_id);
-			members_online = members_online.saturating_less_one();
-			ShardMembersOnline::<T>::insert(shard_id, members_online);
-			let new_status = match old_status {
-				// if a member goes offline before the group key is submitted,
-				// then the shard will never go online
-				ShardStatus::Created | ShardStatus::Committed => ShardStatus::Offline,
-				ShardStatus::Online => {
-					if members_online < shard_threshold {
-						ShardStatus::Offline
-					} else {
-						ShardStatus::Online
-					}
-				},
-				_ => old_status,
-			};
-			if matches!(new_status, ShardStatus::Offline)
-				&& !matches!(old_status, ShardStatus::Offline)
-			{
-				Self::remove_shard_offline(shard_id);
-			} else if !matches!(new_status, ShardStatus::Offline) {
-				ShardState::<T>::insert(shard_id, new_status);
-			}
-		}
 
 		fn members_offline(members: Vec<AccountId>) {
 			let mut shard_updates: BTreeMap<ShardId, (u32, Option<ShardStatus>)> = BTreeMap::new();
