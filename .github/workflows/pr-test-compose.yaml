@@ -6,6 +6,8 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+env:
+  BUCKET_NAME: compose-test-logs
 jobs:
   test-basic:
     runs-on: [self-hosted, integration]
@@ -55,6 +57,24 @@ jobs:
       - name: Still works
         run: |
           ${{ steps.tc-cli.outputs.TC_CLI }} smoke-test 2 3
+      - name: Set up AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.LOG_UPLOADER_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.LOG_UPLOADER_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+        # Upload logs step collects all the logs from the containers
+        # and uploads it in a S3 bucket
+      - name: Upload logs
+        if: ${{ always() }}
+        run: |
+          mkdir -p logs
+          echo "Uploading container logs"
+          for container in $(docker compose ps --services); do
+            echo "Export logs for $container"
+            docker compose logs "$container" > "logs/$container.log"
+          done
+          aws s3 cp logs "s3://${BUCKET_NAME}/${GITHUB_RUN_ID}/${GITHUB_RUN_ATTEMPT}" --recursive
       - name: Cleanup
         if: ${{ always() }}
         run: |
