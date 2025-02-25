@@ -53,5 +53,9 @@ jobs:
           kubectl get pods -n $NAMESPACE
 
       - name: Re-deploy GMP components
-        run: |
-          TODO: tc-cli deploy
+        uses: ./.github/actions/tc-cli
+        with:
+          environment: ${{ github.event.inputs.environment }}
+          version: "latest"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: deploy
