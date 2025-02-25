@@ -14,3 +14,5 @@ gcp-key.json
 
 #cached db
 cached_tx.redb
+
+tmp

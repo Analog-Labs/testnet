@@ -1,6 +1,5 @@
 use futures::StreamExt;
 use tc_cli::Tc;
-use tracing_subscriber::filter::EnvFilter;
 
 mod common;
 
@@ -53,12 +52,6 @@ async fn run_smoke(tc: &Tc, src_addr: Address, dest_addr: Address) {
 #[tokio::test]
 // Resembles tc-cli smoke test
 async fn smoke() {
-	let filter = EnvFilter::from_default_env()
-		.add_directive("tc_cli=info".parse().unwrap())
-		.add_directive("gmp_evm=info".parse().unwrap())
-		.add_directive("smoke_test=info".parse().unwrap());
-	tracing_subscriber::fmt().with_env_filter(filter).init();
-
 	let env = TestEnv::spawn(CONFIG, PROFILE, true)
 		.await
 		.expect("Failed to spawn Test Environment");

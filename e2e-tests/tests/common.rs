@@ -3,17 +3,20 @@ use std::path::Path;
 use std::process;
 use tc_cli::{Sender, Tc};
 use time_primitives::{Address, NetworkId};
+use tracing_subscriber::filter::EnvFilter;
 
 pub struct TestEnv<'a> {
 	pub tc: Tc,
 	pub profile: &'a str,
 }
 
-const ENV: &str = "config/envs/local";
+const ENV: &str = "../config/envs/local";
 
 impl<'a> TestEnv<'a> {
 	async fn new(config: &str, profile: &'a str) -> Result<Self> {
 		let sender = Sender::new();
+		let pbuf = Path::new(ENV).to_path_buf();
+		tracing::warn!("PATH: {}", pbuf.display());
 		let tc = Tc::new(Path::new(ENV).to_path_buf(), config, sender)
 			.await
 			.context("Error creating Tc client")?;
@@ -49,14 +52,14 @@ impl<'a> Drop for TestEnv<'a> {
 		if !docker_down(self.profile).expect("Failed to stop containers") {
 			println!(
 				"Failed to stop containers, please stop by hand with:\n\
-		               \t $> docker compose --profile=ethereum down"
+			               \t $> docker compose --profile=ethereum down"
 			);
 		};
 	}
 }
 
 fn build_containers() -> Result<bool> {
-	let mut cmd = process::Command::new(Path::new("scripts/build_docker.sh"));
+	let mut cmd = process::Command::new(Path::new("../scripts/build_docker.sh"));
 	let mut child = cmd.spawn().context("Error building containers")?;
 
 	child.wait().map(|c| c.success()).context("Error building containers: {e}")

@@ -1084,6 +1084,10 @@ impl Tc {
 	pub async fn setup_test(&self, src: NetworkId, dest: NetworkId) -> Result<(Address, Address)> {
 		// networks
 		self.deploy().await?;
+		if dest == self.tc_network_id {
+			let (_, src_gateway) = self.gateway(src).await?;
+			self.set_tc_route(src, src_gateway).await?;
+		}
 		let (src_addr, src_block) = self.deploy_tester(src).await?;
 		tracing::info!("deployed tester to src network at block {}", src_block);
 
