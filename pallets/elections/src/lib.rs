@@ -184,17 +184,6 @@ pub mod pallet {
 			}
 			T::Shards::member_online(member, network);
 		}
-		///   Handles the event when a member goes offline.
-		/// # Flow
-		///    1. Removes the member from the [`Unassigned`] storage for the given network.
-		///    2. Notifies the `Shards` interface about the member going offline.
-		///    3. Returns the weight of the operation.
-		fn member_offline(member: &AccountId, network: NetworkId) {
-			Unassigned::<T>::mutate(network, |members| {
-				members.retain(|m| m != member);
-			});
-			T::Shards::member_offline(member, network);
-		}
 
 		///   Handles the event when members go offline.
 		/// # Flow
