@@ -179,6 +179,7 @@ pub trait ElectionsInterface {
 	fn shard_offline(network: NetworkId, members: Vec<AccountId>);
 	fn member_online(id: &AccountId, network: NetworkId);
 	fn member_offline(id: &AccountId, network: NetworkId);
+	fn members_offline(members: Vec<AccountId>, network: NetworkId);
 }
 
 pub trait ShardsInterface {
