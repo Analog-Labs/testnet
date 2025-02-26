@@ -31,6 +31,8 @@ mod ledger;
 mod stage;
 
 use airdrops::AirdropBalanceOf;
+use allocation::Allocation;
+use application::Application;
 use deposits::{BalanceOf, CurrencyOf};
 use ledger::{LaunchLedger, RawLaunchLedger};
 use stage::Stage;
@@ -46,8 +48,6 @@ pub type RawVestingSchedule = (Balance, Balance, BlockNumber);
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use allocation::Allocation;
-	use application::Application;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
 		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
@@ -131,21 +131,11 @@ pub mod pallet {
 		// Bridged token allocation
 		(27, Allocation::Initiatives, 45_289_855 * ANLOG, Stage::Retired),
 		// Airdrop Snapshot 5
-		(
-			28,
-			Allocation::Airdrop,
-			1_097_142_834_936_105_265,
-			Stage::AirdropFromUnlocked(data::v28::AIRDROPS_SNAPSHOT_5),
-		),
+		(28, Allocation::Airdrop, 1_097_142_834_936_105_265, Stage::Retired),
 		// Airdrop Move 3
-		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
+		(29, Allocation::Airdrop, 0, Stage::Retired),
 		// Validator Airdrop (missed)
-		(
-			30,
-			Allocation::Ecosystem,
-			160_086 * ANLOG,
-			Stage::AirdropFromUnlocked(data::v30::AIRDROPS_VALIDATORS_MISSED),
-		),
+		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::Retired),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -235,32 +225,13 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
-	/// Old bridged token wallet from which to migrate
-	const OLD_BRIDGED_WALLET: AccountId = AccountId::new([
-		109, 111, 100, 108, 116, 101, 115, 116, 108, 110, 99, 104, 52, 98, 114, 105, 100, 103, 101,
-		100, 45, 101, 114, 99, 50, 48, 0, 0, 0, 0, 0, 0,
-	]);
-
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
-		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
-			if let Err(error) = CurrencyOf::<T>::transfer(
-				&T::AccountId::from(OLD_BRIDGED_WALLET),
-				&Application::Bridging.account_id::<T>(),
-				(103_579_710 * ANLOG).into(),
-				ExistenceRequirement::AllowDeath,
-			) {
-				log::warn!(
-					target: LOG_TARGET,
-					"🤔 Unable to migrate old bridging funds: {:?}", error
-				);
-			}
-
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {
