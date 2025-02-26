@@ -19,8 +19,7 @@ mod benchmarks {
 	use polkadot_sdk::frame_support::traits::Currency;
 
 	#[benchmark]
-	fn lock_operational()
-	{
+	fn lock_operational() {
 		let bridge_account = Application::Bridging.account_id::<T>();
 		let bridge_issuance = BalanceOf::<T>::from(TARGET_ISSUANCE);
 		let _ = CurrencyOf::<T>::deposit_creating(&bridge_account, bridge_issuance);
