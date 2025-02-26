@@ -139,6 +139,8 @@ pub mod pallet {
 		),
 		// Airdrop Move 3
 		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
+		// Validator Airdrop (missed)
+		(30, Allocation::Ecosystem, 160_086 * ANLOG, Stage::AirdropFromUnlocked(data::v30::AIRDROPS_VALIDATORS_MISSED))
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
