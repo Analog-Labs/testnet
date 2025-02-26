@@ -79,6 +79,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - '8545:8545'
     profiles:
     - evm
     - bridge
@@ -94,9 +96,13 @@ services:
     - '--target-url=ws://chain-2-evm:8545'
     - '--network-id=2'
     - '--backend=evm'
+    - '--cctp-sender=000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc'
+    - '--cctp-attestation=https://iris-api-sandbox.circle.com/attestations/'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+    ports:
+      - '8080:8080'
     profiles:
     - evm
     - bridge
@@ -107,6 +113,8 @@ services:
     - 'anvil -b 2 --steps-tracing --order fifo --base-fee 0'
     environment:
         ANVIL_IP_ADDR: '0.0.0.0'
+    ports:
+      - '8546:8545'
     profiles:
     - evm
 
@@ -121,9 +129,13 @@ services:
     - '--target-url=ws://chain-3-evm:8545'
     - '--network-id=3'
     - '--backend=evm'
+    - '--cctp-sender=000000000000000000000000ab5976445202ac58cdf7da9cb5797a70e6be1cdc'
+    - '--cctp-attestation=https://iris-api-sandbox.circle.com/attestations/'
     environment:
       RUST_LOG: 'tc_subxt=debug,chronicle=debug,tss=debug,gmp_evm=info'
       RUST_BACKTRACE: 1
+    ports:
+      - '8081:8080'
     profiles:
     - evm
 
@@ -132,5 +144,6 @@ services:
     environment:
       RUST_BACKTRACE: 1
       RUST_LOG: 'gmp_evm=info'
+      RUST_MIN_STACK: "16777216"    
     profiles:
     - never
