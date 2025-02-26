@@ -70,7 +70,7 @@ struct Slack {
 	client: SlackHyperClient,
 	token: SlackApiToken,
 	channel: SlackChannelId,
-	thread: SlackTs,
+	thread: Option<SlackTs>,
 }
 
 impl Slack {
@@ -80,8 +80,13 @@ impl Slack {
 		let token = SlackApiToken::new(token_value);
 		let channel = std::env::var("SLACK_CHANNEL_ID")?;
 		let channel = SlackChannelId::new(channel);
-		let thread = std::env::var("SLACK_THREAD_TS")?;
-		let thread = SlackTs::new(thread);
+
+		// If thread isn't declared or empty, we should skip message sending
+		let thread = match std::env::var("SLACK_THREAD_TS") {
+			Ok(t) if t.is_empty()=> None,
+			Ok(t) => Some(SlackTs::new(t)),
+			Err(e) => return Err(e.into())
+		};
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel, thread })
 	}
@@ -92,13 +97,19 @@ impl Slack {
 		msg: SlackMessageContent,
 	) -> Result<SlackTs> {
 		let session = self.client.open_session(&self.token);
+		
+		// Skip sending if no thread is specified
+		if self.thread.is_none() {
+			return Ok(SlackTs::new(String::new()));
+		}
+
 		if let Some(id) = id {
 			let req = SlackApiChatUpdateRequest::new(self.channel.clone(), msg, id.clone());
 			session.chat_update(&req).await?;
 			Ok(id)
 		} else {
 			let req = SlackApiChatPostMessageRequest::new(self.channel.clone(), msg)
-				.with_thread_ts(self.thread.clone());
+				.with_thread_ts(self.thread.clone().unwrap());
 			let resp = session.chat_post_message(&req).await?;
 			Ok(resp.ts)
 		}
@@ -112,6 +123,11 @@ impl Slack {
 	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
 
+		// Skip sending if no thread is specified
+		if self.thread.is_none() {
+			return Ok(SlackFileId::new(String::new()));
+		}
+		
 		let req =
 			SlackApiFilesGetUploadUrlExternalRequest::new(format!("{name}.csv"), content.len());
 		let resp = session.get_upload_url_external(&req).await?;
@@ -129,8 +145,23 @@ impl Slack {
 				resp.file_id,
 			)])
 			.with_channel_id(self.channel.clone())
-			.with_thread_ts(self.thread.clone());
+			.with_thread_ts(self.thread.clone().unwrap());
 		let resp = session.files_complete_upload_external(&req).await?;
 		Ok(resp.files[0].id.clone())
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+    async fn slack_test() {
+		rustls::crypto::ring::default_provider()
+		.install_default()
+		.expect("Failed to install rustls crypto provider");
+		
+        let slack = Slack::new().unwrap();
+		slack.post_message(None, SlackMessageContent::new().with_text("Hello from bran's local tc-cli".to_string())).await.unwrap();
+    }
 }
