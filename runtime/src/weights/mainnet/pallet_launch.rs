@@ -41,7 +41,7 @@ impl<T: frame_system::Config> pallet_launch::WeightInfo for WeightInfo<T> {
 	/// Proof: `Balances::Locks` (`max_values`: None, `max_size`: Some(1299), added: 3774, mode: `MaxEncodedLen`)
 	/// Storage: `Balances::Freezes` (r:1 w:0)
 	/// Proof: `Balances::Freezes` (`max_values`: None, `max_size`: Some(67), added: 2542, mode: `MaxEncodedLen`)
-	fn set_bridged_issuance() -> Weight {
+	fn lock_operational() -> Weight {
 		// Proof Size summary in bytes:
 		//  Measured:  `165`
 		//  Estimated: `4764`

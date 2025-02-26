@@ -25,6 +25,7 @@ mod benchmarks;
 
 mod airdrops;
 mod allocation;
+mod application;
 mod deposits;
 mod ledger;
 mod stage;
@@ -46,6 +47,7 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use allocation::Allocation;
+	use application::Application;
 	use frame_support::pallet_prelude::*;
 	use frame_support::traits::{
 		Currency, ExistenceRequirement, LockableCurrency, StorageVersion, WithdrawReasons,
@@ -56,18 +58,18 @@ pub mod pallet {
 	use sp_std::{vec, vec::Vec};
 
 	pub trait WeightInfo {
-		fn set_bridged_issuance() -> Weight;
+		fn lock_operational() -> Weight;
 	}
 
 	pub struct TestWeightInfo;
 	impl WeightInfo for TestWeightInfo {
-		fn set_bridged_issuance() -> Weight {
+		fn lock_operational() -> Weight {
 			Weight::zero()
 		}
 	}
 
 	/// Updating this number will automatically execute the next launch stages on update
-	pub const LAUNCH_VERSION: u16 = 27;
+	pub const LAUNCH_VERSION: u16 = 30;
 	/// Wrapped version to support substrate interface as well
 	pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(LAUNCH_VERSION);
 
@@ -137,6 +139,13 @@ pub mod pallet {
 		),
 		// Airdrop Move 3
 		(29, Allocation::Airdrop, 0, Stage::AirdropTransfer(data::v29::AIRDROP_MOVE_3)),
+		// Validator Airdrop (missed)
+		(
+			30,
+			Allocation::Ecosystem,
+			160_086 * ANLOG,
+			Stage::AirdropFromUnlocked(data::v30::AIRDROPS_VALIDATORS_MISSED),
+		),
 	];
 
 	/// TODO: Difference that was actually minted for airdrops:
@@ -226,13 +235,32 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
+	/// Old bridged token wallet from which to migrate
+	const OLD_BRIDGED_WALLET: AccountId = AccountId::new([
+		109, 111, 100, 108, 116, 101, 115, 116, 108, 110, 99, 104, 52, 98, 114, 105, 100, 103, 101,
+		100, 45, 101, 114, 99, 50, 48, 0, 0, 0, 0, 0, 0,
+	]);
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			if let Err(error) = CurrencyOf::<T>::transfer(
+				&T::AccountId::from(OLD_BRIDGED_WALLET),
+				&Application::Bridging.account_id::<T>(),
+				(103_579_710 * ANLOG).into(),
+				ExistenceRequirement::AllowDeath,
+			) {
+				log::warn!(
+					target: LOG_TARGET,
+					"🤔 Unable to migrate old bridging funds: {:?}", error
+				);
+			}
+
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {
@@ -250,25 +278,25 @@ pub mod pallet {
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Update total amount of tokens that are locked in the [`Allocation::Bridged`]
-		/// account as preparation for miniting or as a result of burning wrapped
-		/// tokens on another chain.
+		/// Update total amount of tokens that are locked in one of the operational wallets.
+		///
+		/// This is used as a preparation for miniting, as a result of burning wrapped
+		/// tokens on another chain or other tokenomics reasons.
 		#[pallet::call_index(0)]
-		#[pallet::weight(<T as Config>::WeightInfo::set_bridged_issuance())]
-		pub fn set_bridged_issuance(origin: OriginFor<T>, amount: BalanceOf<T>) -> DispatchResult {
+		#[pallet::weight(<T as Config>::WeightInfo::lock_operational())]
+		pub fn lock_operational(
+			origin: OriginFor<T>,
+			target: Application,
+			amount: BalanceOf<T>,
+		) -> DispatchResult {
 			T::LaunchAdmin::ensure_origin(origin)?;
 
-			let bridge_account = Allocation::Bridged.account_id::<T>();
+			let account = target.account_id::<T>();
 			ensure!(
-				CurrencyOf::<T>::total_balance(&bridge_account) >= amount,
+				CurrencyOf::<T>::total_balance(&account) >= amount,
 				TokenError::FundsUnavailable
 			);
-			CurrencyOf::<T>::set_lock(
-				*b"bridged0",
-				&bridge_account,
-				amount,
-				WithdrawReasons::all(),
-			);
+			CurrencyOf::<T>::set_lock(target.lock_id(), &account, amount, WithdrawReasons::all());
 
 			Ok(())
 		}
