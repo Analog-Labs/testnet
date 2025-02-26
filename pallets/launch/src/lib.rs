@@ -228,13 +228,32 @@ pub mod pallet {
 		TransferFromVirtual { source: Vec<u8>, target: T::AccountId, amount: BalanceOf<T> },
 	}
 
+	/// Old bridged token wallet from which to migrate
+	const OLD_BRIDGED_WALLET: AccountId = AccountId::new([
+		109, 111, 100, 108, 116, 101, 115, 116, 108, 110, 99, 104, 52, 98, 114, 105, 100, 103, 101,
+		100, 45, 101, 114, 99, 50, 48, 0, 0, 0, 0, 0, 0,
+	]);
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T>
 	where
 		T::AccountId: From<AccountId>,
 		Balance: From<BalanceOf<T>> + From<AirdropBalanceOf<T>>,
+		BalanceOf<T>: From<u128>,
 	{
 		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			if let Err(error) = CurrencyOf::<T>::transfer(
+				&T::AccountId::from(OLD_BRIDGED_WALLET),
+				&Application::Bridging.account_id::<T>(),
+				(103_579_710 * ANLOG).into(),
+				ExistenceRequirement::AllowDeath,
+			) {
+				log::warn!(
+					target: LOG_TARGET,
+					"🤔 Unable to migrate old bridging funds: {:?}", error
+				);
+			}
+
 			match LaunchLedger::compile(LAUNCH_LEDGER) {
 				Ok(plan) => return plan.run(),
 				Err(error) => {
