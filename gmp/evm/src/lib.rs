@@ -405,7 +405,13 @@ impl IChain for Connector {
 	}
 	/// Uses a faucet to fund the account when possible.
 	async fn faucet(&self, balance: u128) -> Result<()> {
-		self.wallet.faucet(balance, None).await?;
+		match self.network_id() {
+			2 | 3 | 6 => {
+				let _ = self.wallet.faucet(balance, None).await?;
+			},
+			network_id => tracing::warn!("network {network_id} doesn't support faucet"),
+		}
+
 		Ok(())
 	}
 	/// Transfers an amount to an account.
