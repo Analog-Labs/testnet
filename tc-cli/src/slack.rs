@@ -83,9 +83,9 @@ impl Slack {
 
 		// If thread isn't declared or empty, we should skip message sending
 		let thread = match std::env::var("SLACK_THREAD_TS") {
-			Ok(t) if t.is_empty()=> None,
+			Ok(t) if t.is_empty() => None,
 			Ok(t) => Some(SlackTs::new(t)),
-			Err(e) => return Err(e.into())
+			Err(e) => return Err(e.into()),
 		};
 		let client = SlackClient::new(SlackClientHyperConnector::new()?);
 		Ok(Self { client, token, channel, thread })
@@ -97,7 +97,6 @@ impl Slack {
 		msg: SlackMessageContent,
 	) -> Result<SlackTs> {
 		let session = self.client.open_session(&self.token);
-		
 		// Skip sending if no thread is specified
 		if self.thread.is_none() {
 			return Ok(SlackTs::new(String::new()));
@@ -122,12 +121,10 @@ impl Slack {
 		content: Vec<u8>,
 	) -> Result<SlackFileId> {
 		let session = self.client.open_session(&self.token);
-
 		// Skip sending if no thread is specified
 		if self.thread.is_none() {
 			return Ok(SlackFileId::new(String::new()));
 		}
-		
 		let req =
 			SlackApiFilesGetUploadUrlExternalRequest::new(format!("{name}.csv"), content.len());
 		let resp = session.get_upload_url_external(&req).await?;
