@@ -150,18 +150,3 @@ impl Slack {
 		Ok(resp.files[0].id.clone())
 	}
 }
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[tokio::test]
-    async fn slack_test() {
-		rustls::crypto::ring::default_provider()
-		.install_default()
-		.expect("Failed to install rustls crypto provider");
-		
-        let slack = Slack::new().unwrap();
-		slack.post_message(None, SlackMessageContent::new().with_text("Hello from bran's local tc-cli".to_string())).await.unwrap();
-    }
-}
