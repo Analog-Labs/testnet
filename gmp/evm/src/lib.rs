@@ -839,7 +839,7 @@ impl IConnectorAdmin for Connector {
 			"params": []
 		});
 		let json: serde_json::Value = reqwest::Client::new()
-			.post(&self.url.replace("ws", "http"))
+			.post(self.url.replace("ws", "http"))
 			.json(&body)
 			.send()
 			.await?
@@ -861,7 +861,7 @@ impl IConnectorAdmin for Connector {
 		});
 
 		let json: serde_json::Value = reqwest::Client::new()
-			.post(&self.url.replace("ws", "http"))
+			.post(self.url.replace("ws", "http"))
 			.json(&body)
 			.send()
 			.await?
