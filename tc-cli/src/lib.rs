@@ -1166,4 +1166,9 @@ impl Tc {
 		let connector = self.connector(network)?;
 		connector.dump_state().await
 	}
+
+	pub async fn load_state(&self, network: NetworkId, state: String) -> Result<()> {
+		let connector = self.connector(network)?;
+		connector.load_state(state).await
+	}
 }

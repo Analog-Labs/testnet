@@ -203,6 +203,10 @@ enum Command {
 		network: NetworkId,
 		path: Option<PathBuf>,
 	},
+	LoadState {
+		network: NetworkId,
+		path: Option<PathBuf>,
+	},
 }
 
 #[tokio::main]
@@ -540,6 +544,12 @@ async fn real_main() -> Result<()> {
 			let state = tc.dump_state(network).await?;
 			std::fs::write(&path, state)?;
 			tracing::info!("Anvil state stored to: {:?}", &path);
+		},
+		Command::LoadState { network, path } => {
+			let path = path.unwrap_or("anvil_state.txt".into());
+			let state = std::fs::read_to_string(&path)?;
+			tc.load_state(network, state).await?;
+			tracing::info!("Anvil state loaded from: {:?}", &path);
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());

@@ -851,6 +851,23 @@ impl IConnectorAdmin for Connector {
 			.map(|s| s.to_owned())
 			.ok_or(anyhow!("invalid rpc response"))
 	}
+	/// Load anvil chain state
+	async fn load_state(&self, state: String) -> Result<()> {
+		let body = serde_json::json!({
+			"id": 0,
+			"jsonrpc": "2.0",
+			"method": "anvil_loadState",
+			"params": [ state ]
+		});
+
+		reqwest::Client::new()
+			.post(&self.url.replace("ws", "http"))
+			.json(&body)
+			.send()
+			.await?;
+
+		Ok(())
+	}
 }
 
 fn compute_create2_address(
