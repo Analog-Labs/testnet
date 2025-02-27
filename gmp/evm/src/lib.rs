@@ -1,6 +1,6 @@
 use alloy_primitives::{B256, U256};
 use alloy_sol_types::{SolCall, SolConstructor, SolEvent, SolValue};
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use futures::Stream;
 use reqwest::Client;
@@ -832,19 +832,24 @@ impl IConnectorAdmin for Connector {
 	}
 	/// Dump anvil chain state
 	async fn dump_state(&self) -> Result<String> {
-		let output = Command::new("cast")
-			.arg("rp")
-			.arg("--rpc-url")
-			.arg(&self.url)
-			.arg("anvil_dumpState")
-			.output()
-			.context("failed to run cast")?;
-		if !output.status.success() {
-			let err = std::str::from_utf8(&output.stderr).ok().unwrap_or_default();
-			anyhow::bail!("cast exited with {}: {err}", output.status);
-		}
-		let stdout = std::str::from_utf8(&output.stdout)?;
-		Ok(stdout.into())
+		let body = serde_json::json!({
+			"id": 0,
+			"jsonrpc": "2.0",
+			"method": "anvil_dumpState",
+			"params": []
+		});
+		let json: serde_json::Value = reqwest::Client::new()
+			.post(&self.url.replace("ws", "http"))
+			.json(&body)
+			.send()
+			.await?
+			.json()
+			.await?;
+
+		json["result"]
+			.as_str()
+			.map(|s| s.to_owned())
+			.ok_or(anyhow!("invalid rpc response"))
 	}
 }
 
