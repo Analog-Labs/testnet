@@ -830,6 +830,22 @@ impl IConnectorAdmin for Connector {
 		let stdout = std::str::from_utf8(&output.stdout)?;
 		Ok(stdout.into())
 	}
+	/// Dump anvil chain state
+	async fn dump_state(&self) -> Result<String> {
+		let output = Command::new("cast")
+			.arg("rp")
+			.arg("--rpc-url")
+			.arg(&self.url)
+			.arg("anvil_dumpState")
+			.output()
+			.context("failed to run cast")?;
+		if !output.status.success() {
+			let err = std::str::from_utf8(&output.stderr).ok().unwrap_or_default();
+			anyhow::bail!("cast exited with {}: {err}", output.status);
+		}
+		let stdout = std::str::from_utf8(&output.stdout)?;
+		Ok(stdout.into())
+	}
 }
 
 fn compute_create2_address(

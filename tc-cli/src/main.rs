@@ -199,6 +199,9 @@ enum Command {
 		network: NetworkId,
 		hash: String,
 	},
+	DumpState {
+		network: NetworkId,
+	},
 }
 
 #[tokio::main]
@@ -209,7 +212,7 @@ async fn main() {
 		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
-		std::io::stdout().flush();
+		let _ = std::io::stdout().flush();
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);
@@ -530,6 +533,10 @@ async fn real_main() -> Result<()> {
 		},
 		Command::RetryFailedBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
+		},
+		Command::DumpState { network } => {
+			let state = tc.dump_state(network).await?;
+			tracing::info!("Anvil state: {}", &state);
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
