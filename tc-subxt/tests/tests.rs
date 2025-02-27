@@ -88,6 +88,7 @@ async fn test_tc_subxt_db_ops() -> Result<()> {
 	let env = TestingEnv::new().await;
 	let rx = env.submit_tx().await;
 	let nonce = env.submission().await;
+	assert_eq!(nonce, 0);
 	// check db insertion
 	let txs = env.db.load_pending_txs(0).unwrap();
 	assert!(txs.len() == 1);
