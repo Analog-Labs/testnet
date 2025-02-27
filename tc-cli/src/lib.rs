@@ -231,7 +231,14 @@ impl Tc {
 			format!("faucet {network} {}", self.format_balance(Some(network), faucet)?),
 		)
 		.await?;
-		self.connector(network)?.faucet(faucet).await
+		self.connector(network)?.faucet(faucet).await.with_context(|| {
+			format!(
+				"faucet failed or is unsupported, please transfer {} to {}",
+				self.format_balance(Some(network), faucet).unwrap(),
+				self.format_address(Some(network), self.address(Some(network)).unwrap())
+					.unwrap(),
+			)
+		})
 	}
 
 	pub async fn balance(&self, network: Option<NetworkId>, address: Address) -> Result<u128> {
