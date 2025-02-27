@@ -860,11 +860,17 @@ impl IConnectorAdmin for Connector {
 			"params": [ state ]
 		});
 
-		reqwest::Client::new()
+		let json: serde_json::Value = reqwest::Client::new()
 			.post(&self.url.replace("ws", "http"))
 			.json(&body)
 			.send()
+			.await?
+			.json()
 			.await?;
+
+		if !json["error"].is_null() {
+			return Err(anyhow!("{}", json["error"].to_string()));
+		}
 
 		Ok(())
 	}
