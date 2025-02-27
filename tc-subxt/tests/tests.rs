@@ -118,6 +118,7 @@ async fn test_finalized_stream_error_and_recovery() -> Result<()> {
 	env.set_force_stream_error(true).await;
 	sleep(Duration::from_millis(100)).await;
 	env.set_force_stream_error(false).await;
+	sleep(Duration::from_secs(1)).await;
 	env.make_block().await;
 
 	// adding new
