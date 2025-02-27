@@ -201,6 +201,7 @@ enum Command {
 	},
 	DumpState {
 		network: NetworkId,
+		path: Option<PathBuf>,
 	},
 }
 
@@ -534,9 +535,11 @@ async fn real_main() -> Result<()> {
 		Command::RetryFailedBatch { batch_id } => {
 			tc.restart_failed_batch(batch_id).await?;
 		},
-		Command::DumpState { network } => {
+		Command::DumpState { network, path } => {
+			let path = path.unwrap_or("anvil_state.txt".into());
 			let state = tc.dump_state(network).await?;
-			tracing::info!("Anvil state: {}", &state);
+			std::fs::write(&path, state)?;
+			tracing::info!("Anvil state stored to: {:?}", &path);
 		},
 	}
 	tracing::info!("executed query in {}s", now.elapsed().unwrap().as_secs());
