@@ -209,7 +209,7 @@ async fn main() {
 		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
-		std::io::stdout().flush();
+		std::io::stdout().flush().unwrap();
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);
