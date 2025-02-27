@@ -2,6 +2,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use futures::StreamExt;
 use std::collections::HashSet;
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 use tc_cli::{Query, Sender, Tc};
@@ -208,6 +209,7 @@ async fn main() {
 		.expect("Failed to install rustls crypto provider");
 	if let Err(err) = real_main().await {
 		println!("{err:#?}");
+		std::io::stdout().flush();
 		std::process::exit(1);
 	} else {
 		std::process::exit(0);
