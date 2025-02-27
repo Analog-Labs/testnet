@@ -19,12 +19,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-/// Testnet runtime version.
-#[cfg(all(feature = "testnet", not(feature = "develop")))]
+/// Staging runtime version.
+#[cfg(all(not(feature = "testnet"), feature = "develop"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-testnet"),
-	impl_name: create_runtime_str!("analog-testnet"),
+	spec_name: create_runtime_str!("analog-staging"),
+	impl_name: create_runtime_str!("analog-staging"),
 	authoring_version: 0,
 	spec_version: 19,
 	impl_version: 0,
@@ -33,12 +33,12 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-/// Development runtime version.
-#[cfg(all(not(feature = "testnet"), feature = "develop"))]
+/// Testnet runtime version.
+#[cfg(all(feature = "testnet", not(feature = "develop")))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("analog-staging"),
-	impl_name: create_runtime_str!("analog-staging"),
+	spec_name: create_runtime_str!("analog-testnet"),
+	impl_name: create_runtime_str!("analog-testnet"),
 	authoring_version: 0,
 	spec_version: 19,
 	impl_version: 0,
