@@ -2,12 +2,12 @@
 //!
 //! # Timechain Runtime
 //!
-//!
-//! | Name    | Features | Profile |
-//! |---------|----------|---------|
-//! | mainnet | default  | mainnet |
-//! | testnet | testnet  | testnet |
-//! | develop | develop  | dev     |
+//! | Name    | Features         | Profile |
+//! |---------|------------------|---------|
+//! | mainnet | default          | mainnet |
+//! | staging | develop          | testnet |
+//! | testnet | testnet          | testnet |
+//! | develop | testnet,develop  | testnet |
 //!
 //! Until we can extract individual package config a bit better,
 //! please check [`Runtime`] and the individual pallets.
@@ -258,7 +258,21 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 };
 
 /// Development runtime version.
-#[cfg(feature = "develop")]
+#[cfg(all(not(feature = "testnet"), feature = "develop"))]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: create_runtime_str!("analog-staging"),
+	impl_name: create_runtime_str!("analog-staging"),
+	authoring_version: 0,
+	spec_version: 19,
+	impl_version: 0,
+	apis: apis::RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	state_version: 1,
+};
+
+/// Development runtime version.
+#[cfg(all(feature = "testnet", feature = "develop"))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: create_runtime_str!("analog-develop"),
