@@ -22,7 +22,7 @@ num-bigint = "0.4.6"
 num-rational = "0.4.2"
 num-traits = "0.2.19"
 polkadot-sdk = { workspace = true, features = ["sp-runtime"]}
-reqwest = { version = "0.12.7", default-features = false, features = ["json", "rustls-tls-native-roots"] }
+reqwest.workspace = true
 rustls = { version = "0.23", features = ["ring"], default-features = false }
 scale-codec.workspace = true
 serde = { workspace = true, features = ["derive"] }
