@@ -9,6 +9,7 @@ pub enum Backend {
 	Evm,
 	Grpc,
 	Rust,
+	Solana,
 }
 
 impl std::str::FromStr for Backend {
@@ -30,6 +31,7 @@ impl Backend {
 			Self::Evm => Arc::new(gmp_evm::Connector::new(params.clone()).await?),
 			Self::Grpc => Arc::new(gmp_grpc::Connector::new(params.clone()).await?),
 			Self::Rust => Arc::new(gmp_rust::Connector::new(params.clone()).await?),
+			Self::Solana => Arc::new(gmp_solana::Connector::new(params.clone()).await?),
 		})
 	}
 
@@ -41,6 +43,7 @@ impl Backend {
 			Self::Evm => Arc::new(gmp_evm::Connector::new(params.clone()).await?),
 			Self::Grpc => Arc::new(gmp_grpc::Connector::new(params.clone()).await?),
 			Self::Rust => Arc::new(gmp_rust::Connector::new(params.clone()).await?),
+			Self::Solana => Arc::new(gmp_solana::Connector::new(params.clone()).await?),
 		})
 	}
 }

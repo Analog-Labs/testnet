@@ -125,6 +125,11 @@ services:
     profiles:
     - evm
 
+  chain-3-evm:
+    image: 'solanalabs/solana:latest'
+    profiles:
+    - solana
+
   tc-cli:
     image: 'analoglabs/tc-cli-develop'
     environment:
