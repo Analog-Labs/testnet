@@ -130,7 +130,5 @@ services:
     environment:
       RUST_BACKTRACE: 1
       RUST_LOG: 'gmp_evm=info'
-    volumes:
-    - ./tmp/tc-cli:/etc/tmp
     profiles:
     - never
