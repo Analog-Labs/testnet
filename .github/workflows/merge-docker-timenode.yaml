@@ -39,7 +39,7 @@ jobs:
           - image: bridge
             profile: mainnet
             features: bridge
-          - image: stag
+          - image: staging
             profile: mainnet
             features: develop
           - image: test
