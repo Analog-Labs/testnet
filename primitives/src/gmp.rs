@@ -73,7 +73,7 @@ impl GmpMessage {
 
 	pub fn message_id(&self) -> MessageId {
 		let header = self.encode_header();
-		Keccak256::digest(&header).into()
+		Keccak256::digest(header).into()
 	}
 }
 
