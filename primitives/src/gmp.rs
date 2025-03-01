@@ -71,16 +71,9 @@ impl GmpMessage {
 		hdr
 	}
 
-	pub fn encode_to(&self, buf: &mut Vec<u8>) {
-		let msg_hash: [u8; 32] = Keccak256::digest(&self.bytes).into();
-		buf.extend_from_slice(&self.encode_header());
-		buf.extend_from_slice(&msg_hash);
-	}
-
 	pub fn message_id(&self) -> MessageId {
-		let mut buf = Vec::new();
-		self.encode_to(&mut buf);
-		Keccak256::digest(buf).into()
+		let header = self.encode_header();
+		Keccak256::digest(header).into()
 	}
 }
 
